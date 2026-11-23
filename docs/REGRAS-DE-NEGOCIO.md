@@ -27,7 +27,7 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 - **RN-09a — Solicitação.** Na tela de login, o usuário informa seu e-mail e solicita a recuperação. A resposta é sempre a mesma mensagem ("Se o e-mail estiver cadastrado, você receberá um link"), exista ou não a conta, para não revelar quais e-mails estão cadastrados.
 - **RN-09b — Link de redefinição.** Se a conta existir, o sistema envia ao e-mail um link com um código aleatório. O código é armazenado apenas como hash, vale por **30 minutos** e pode ser usado **uma única vez**. Uma nova solicitação invalida os códigos anteriores.
 - **RN-09c — Limite de solicitações.** São permitidas no máximo 3 solicitações por e-mail a cada 15 minutos.
-- **RN-09d — Nova senha.** Pelo link, o usuário define uma nova senha, seguindo RN-07. Após a redefinição, todas as sessões abertas da conta são encerradas e o usuário precisa entrar novamente.
+- **RN-09d — Nova senha.** Pelo link, o usuário define uma nova senha, seguindo RN-07 e diferente da senha atual. Após a redefinição, todas as sessões abertas da conta são encerradas e o usuário precisa entrar novamente.
 - **RN-09e — Envio.** Os e-mails (de recuperação e de confirmação) são enviados por um servidor SMTP configurado no ambiente. Sem SMTP configurado (ambiente de desenvolvimento), o link é exibido no console do servidor.
 
 ### Confirmação de e-mail
