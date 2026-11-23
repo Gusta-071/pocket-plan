@@ -24,10 +24,15 @@ Pré-requisito: Node.js 22 ou superior.
 npm install
 cp .env.example .env      # no Windows: copy .env.example .env
 npm run db:generate
+npm run db:deploy         # cria o banco e aplica as migrations
 npm run dev
 ```
 
 Abra http://localhost:5173. A API roda em http://localhost:3333, e o Vite encaminha as chamadas `/api` para ela.
+
+Sem `SMTP_HOST` no `.env`, os e-mails de redefinição de senha não são enviados: o link aparece no console da API.
+
+Os testes usam um banco próprio (`data/test.db`), recriado a cada execução, então não mexem nos seus dados.
 
 ## Comandos
 
@@ -40,6 +45,7 @@ Abra http://localhost:5173. A API roda em http://localhost:3333, e o Vite encami
 | `npm run verify` | Tipos + testes (rodar antes de abrir PR) |
 | `npm run db:generate` | Gera o cliente do Prisma |
 | `npm run db:migrate` | Cria e aplica uma migration em desenvolvimento |
+| `npm run db:deploy` | Aplica as migrations existentes no banco |
 | `npm run db:studio` | Abre o Prisma Studio para inspecionar o banco |
 
 ## Estrutura

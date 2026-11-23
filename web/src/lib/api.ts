@@ -5,11 +5,15 @@ export type ApiErrorBody = {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** Mensagem de validação por campo (ex.: `{ password: 'A senha deve ter...' }`). */
+  readonly fields: Record<string, string>;
 
   constructor(status: number, body: ApiErrorBody | null) {
     super(body?.error.message ?? 'Não foi possível falar com o servidor.');
     this.status = status;
     this.code = body?.error.code ?? 'NETWORK_ERROR';
+    this.fields = {};
+    for (const field of body?.error.fields ?? []) this.fields[field.path] ??= field.message;
   }
 }
 

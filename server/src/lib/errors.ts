@@ -5,11 +5,14 @@ import { ZodError } from 'zod';
 export class AppError extends Error {
   readonly status: number;
   readonly code: string;
+  /** Erros ligados a campos do formulário, no mesmo formato da validação. */
+  readonly fields?: { path: string; message: string }[];
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, fields?: { path: string; message: string }[]) {
     super(message);
     this.status = status;
     this.code = code;
+    this.fields = fields;
   }
 }
 
@@ -19,7 +22,7 @@ export const notFoundHandler: RequestHandler = (_req, res) => {
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof AppError) {
-    res.status(err.status).json({ error: { code: err.code, message: err.message } });
+    res.status(err.status).json({ error: { code: err.code, message: err.message, fields: err.fields } });
     return;
   }
   if (err instanceof ZodError) {

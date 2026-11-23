@@ -8,5 +8,73 @@ datasource db {
   provider = "sqlite"
 }
 
-// Os modelos do domínio entram nas branches de funcionalidade,
-// seguindo docs/REGRAS-DE-NEGOCIO.md.
+// Modelos do domínio, seguindo docs/REGRAS-DE-NEGOCIO.md.
+
+/// Conta de usuário (RN-05 a RN-09).
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  /// Normalizado: sem espaços nas pontas e em minúsculas (RN-06).
+  email        String   @unique
+  passwordHash String
+  /// Dia de início do mês financeiro, de 1 a 28 (RN-10).
+  monthStartDay Int     @default(1)
+  /// AUTO | START_MONTH | END_MONTH (RN-12).
+  periodNaming String   @default("AUTO")
+  /// Preenchido quando o usuário confirma o e-mail (RN-09f, RN-09i).
+  emailVerifiedAt DateTime?
+  createdAt    DateTime @default(now())
+
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+/// Código de confirmação de e-mail: só o hash, 24 horas, uso único (RN-09f).
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Sessão de login, válida por 7 dias (RN-08). O cookie guarda o token; o banco, só o hash.
+model Session {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Código de redefinição de senha: só o hash, 30 minutos, uso único (RN-09b).
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Eventos usados nos limites por e-mail: LOGIN_FAILURE (RN-08c), PASSWORD_RESET_REQUEST (RN-09c)
+/// e EMAIL_VERIFICATION_SENT (RN-09h). Registra também e-mails não cadastrados.
+model AuthAttempt {
+  id        Int      @id @default(autoincrement())
+  kind      String
+  email     String
+  createdAt DateTime @default(now())
+
+  @@index([kind, email, createdAt])
+}
