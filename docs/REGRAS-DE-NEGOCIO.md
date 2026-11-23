@@ -17,6 +17,9 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 - **RN-06 — E-mail único.** O e-mail é normalizado (espaços removidos e letras minúsculas) e não pode estar em uso por outra conta.
 - **RN-07 — Senha.** Mínimo de 8 caracteres, com pelo menos uma letra e um número. A senha nunca é armazenada nem registrada em logs; apenas seu hash.
 - **RN-08 — Sessão.** O login cria uma sessão válida por 7 dias. Sair encerra a sessão. Sem sessão válida, o usuário é levado à tela de login.
+  - **RN-08a — Erro de login genérico.** E-mail inexistente e senha incorreta geram a mesma mensagem ("E-mail ou senha inválidos"), para não revelar quais e-mails estão cadastrados.
+  - **RN-08b — Entrada após o cadastro.** Ao concluir o cadastro, o usuário já entra logado, sem precisar fazer login.
+  - **RN-08c — Limite de tentativas.** Após 10 tentativas de login com erro para o mesmo e-mail em 15 minutos, novas tentativas para esse e-mail são recusadas até que a janela passe. A regra vale também para e-mails não cadastrados, para não revelar quais existem.
 - **RN-09 — Configuração inicial.** Ao criar a conta, o sistema cria as categorias padrão (RN-15) define o início do mês financeiro no dia 1 (RN-10) e o nome do período como automático (RN-12).
 
 ### Recuperação de senha
