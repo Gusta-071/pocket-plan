@@ -1,0 +1,19 @@
+import request from 'supertest';
+import { describe, expect, it } from 'vitest';
+import { createApp } from '../src/app.js';
+
+describe('GET /api/health', () => {
+  it('responde que a API e o banco estão disponíveis', async () => {
+    const response = await request(createApp()).get('/api/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: 'ok', database: 'ok' });
+  });
+
+  it('responde 404 padronizado para rotas inexistentes da API', async () => {
+    const response = await request(createApp()).get('/api/nao-existe');
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe('NOT_FOUND');
+  });
+});

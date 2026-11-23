@@ -1,0 +1,12 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../server/src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Os modelos do domínio entram nas branches de funcionalidade,
+// seguindo docs/REGRAS-DE-NEGOCIO.md.
