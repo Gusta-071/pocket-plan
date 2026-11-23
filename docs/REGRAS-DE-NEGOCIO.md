@@ -13,7 +13,7 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 
 ## Conta de usuário
 
-- **RN-05 — Cadastro.** O usuário informa nome (2 a 80 caracteres), e-mail e senha.
+- **RN-05 — Cadastro.** O usuário informa nome (2 a 80 caracteres), e-mail e senha. A senha é digitada duas vezes, e o cadastro só prossegue se as duas forem iguais. O mesmo vale para a nova senha na recuperação (RN-09d).
 - **RN-06 — E-mail único.** O e-mail é normalizado (espaços removidos e letras minúsculas) e não pode estar em uso por outra conta.
 - **RN-07 — Senha.** Mínimo de 8 caracteres, com pelo menos uma letra e um número. A senha nunca é armazenada nem registrada em logs; apenas seu hash.
 - **RN-08 — Sessão.** O login cria uma sessão válida por 7 dias. Sair encerra a sessão. Sem sessão válida, o usuário é levado à tela de login.
