@@ -52,12 +52,18 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 ## Categorias
 
 - **RN-14 — Tipo.** Toda categoria é de **receita** ou de **despesa**. Não há subcategorias: as categorias têm um único nível.
-- **RN-15 — Categorias padrão.** Toda conta nova recebe:
+- **RN-15 — Categorias padrão.** Toda conta nova recebe as categorias abaixo, cada uma com uma cor predefinida (RN-16a):
   - Receitas: Salário, Freelance, Renda extra, Outras receitas.
   - Despesas: Alimentação, Moradia, Transporte, Saúde, Educação, Lazer, Compras, Contas e serviços, Assinaturas, Outras despesas.
 - **RN-16 — Nome.** O nome tem de 1 a 40 caracteres e é único entre as categorias do mesmo usuário e do mesmo tipo, sem diferenciar maiúsculas, minúsculas e espaços nas extremidades.
-- **RN-17 — Edição.** O usuário pode criar categorias e renomear qualquer categoria, inclusive as padrão. O tipo de uma categoria não pode ser alterado depois de criada.
-- **RN-18 — Exclusão.** Uma categoria só pode ser excluída se não tiver lançamentos nem orçamento associados. Caso contrário, o usuário deve primeiro reclassificar os lançamentos.
+  - **RN-16a — Cor.** Toda categoria tem uma cor, escolhida em uma paleta fixa de 12 cores. A cor ajuda a reconhecer a categoria em listas e gráficos.
+  - **RN-16b — Limite.** Cada usuário pode ter no máximo 30 categorias de cada tipo.
+- **RN-17 — Edição.** O usuário pode criar categorias e alterar o nome e a cor de qualquer categoria, inclusive as padrão. O tipo de uma categoria não pode ser alterado depois de criada.
+- **RN-18 — Exclusão.** A exclusão exige confirmação do usuário.
+  - Se a categoria não tem lançamentos, ela é excluída.
+  - Se tem lançamentos, o usuário escolhe outra categoria **do mesmo tipo** para recebê-los. Os lançamentos são movidos e a categoria é excluída em uma única operação: ou tudo acontece, ou nada.
+  - O orçamento da categoria excluída (RN-29), se houver, é removido junto, e a confirmação avisa isso.
+  - **RN-18a — Mínimo por tipo.** O usuário mantém sempre pelo menos uma categoria de receita e uma de despesa. A última categoria de um tipo não pode ser excluída, apenas editada.
 
 ## Lançamentos (receitas e despesas)
 
@@ -69,7 +75,7 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
   - data **depois de hoje** → **previsto**.
 
   Quando a data de um lançamento previsto chega, ele passa a ser realizado automaticamente, sem ação do usuário. A situação é sempre calculada, nunca armazenada.
-- **RN-23 — Limite de data futura.** Lançamentos podem ter data até 12 meses após hoje.
+- **RN-23 — Limite de datas.** Lançamentos podem ter data até 12 meses após hoje. Datas anteriores a 01/01/2000 não são aceitas, para evitar erros de digitação.
 - **RN-24 — Edição.** Todos os campos de um lançamento, previsto ou realizado, podem ser editados, com as mesmas validações da criação. Ao alterar a data, a situação é recalculada (RN-22).
 - **RN-25 — Exclusão.** A exclusão é definitiva e exige confirmação do usuário.
 - **RN-25a — Duplicar.** O usuário pode duplicar um lançamento: o formulário abre preenchido com os dados do original, para ajuste antes de salvar. A cópia segue as mesmas validações da criação.
@@ -108,7 +114,17 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 - **RN-40 — Valores brutos.** Os valores são estimativas brutas: não consideram imposto de renda, IOF nem taxas. A interface deve deixar isso claro.
 - **RN-41 — Exclusão.** Excluir um investimento exclui também seus aportes e resgates, mediante confirmação.
 
+## Configurações da conta
+
+- **RN-42 — Nome.** O usuário pode alterar o nome a qualquer momento, com as mesmas regras do cadastro (RN-05). O e-mail é exibido, mas não pode ser alterado nesta entrega.
+- **RN-43 — Alteração de senha.** Para alterar a senha, o usuário informa a senha atual e a nova duas vezes. A nova senha segue RN-07 e deve ser diferente da atual. Após a alteração, as demais sessões da conta são encerradas; a sessão em uso continua ativa.
+- **RN-44 — Mês financeiro.** O dia de início (RN-10) e o nome do período (RN-12) são alterados nas configurações, que mostram uma prévia do período atual com a opção escolhida.
+- **RN-45 — Tema.** O usuário escolhe o tema da interface: **claro**, **escuro** ou **automático** (segue o tema do aparelho). O padrão é automático. A escolha fica salva na conta e vale em todos os aparelhos.
+- **RN-46 — Sair de todos os aparelhos.** O usuário pode encerrar todas as sessões da conta, inclusive a atual.
+- **RN-47 — Exclusão da conta.** O usuário pode excluir a própria conta, informando a senha atual e confirmando a ação. A exclusão é definitiva: apaga a conta e todos os seus dados (categorias, lançamentos, orçamentos, metas e investimentos) e encerra todas as sessões.
+
 ## Decisões adiadas
 
+- **Alteração de e-mail (RN-42).** Exigiria confirmar o novo endereço; fica para depois.
 - **Recorrência automática.** Séries recorrentes (em que alterar uma ocorrência pode alterar as demais) ficam para depois. Nesta entrega, despesas e receitas fixas são cobertas por duplicar e repetir (RN-25a a RN-25d).
 - **CDI histórico (RN-38).** Se o cálculo dia a dia se mostrar complexo demais para o prazo, a alternativa é aplicar a taxa anual atual do CDI (série 4389) a todo o período, documentando a simplificação.

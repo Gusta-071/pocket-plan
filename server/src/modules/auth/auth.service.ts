@@ -1,8 +1,10 @@
 import type { z } from 'zod';
+import type { PeriodNaming } from '../../../../shared/period.js';
 import { generateToken, hashPassword, hashToken, spendPasswordCheckTime, verifyPassword } from '../../lib/crypto.js';
 import { AppError } from '../../lib/errors.js';
 import { sendMail } from '../../lib/mailer.js';
 import { prisma } from '../../lib/prisma.js';
+import { categoryNameKey, DEFAULT_CATEGORIES } from '../categories/categories.constants.js';
 import type {
   forgotPasswordSchema,
   loginSchema,
@@ -24,12 +26,38 @@ export const FORGOT_PASSWORD_MESSAGE = 'Se o e-mail estiver cadastrado, você re
 
 type AttemptKind = 'LOGIN_FAILURE' | 'PASSWORD_RESET_REQUEST' | 'EMAIL_VERIFICATION_SENT';
 
-export type PublicUser = { id: number; name: string; email: string; emailVerified: boolean };
+export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM';
 
-type UserRow = { id: number; name: string; email: string; emailVerifiedAt: Date | null };
+export type PublicUser = {
+  id: number;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  monthStartDay: number;
+  periodNaming: PeriodNaming;
+  theme: Theme;
+};
 
-function toPublicUser(user: UserRow): PublicUser {
-  return { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerifiedAt !== null };
+type UserRow = {
+  id: number;
+  name: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  monthStartDay: number;
+  periodNaming: string;
+  theme: string;
+};
+
+export function toPublicUser(user: UserRow): PublicUser {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    emailVerified: user.emailVerifiedAt !== null,
+    monthStartDay: user.monthStartDay,
+    periodNaming: user.periodNaming as PeriodNaming,
+    theme: user.theme as Theme,
+  };
 }
 
 async function countRecentAttempts(kind: AttemptKind, email: string): Promise<number> {
@@ -74,10 +102,17 @@ export async function register(input: z.infer<typeof registerSchema>, appUrl: st
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) throw new AppError(409, 'EMAIL_IN_USE', 'Este e-mail já está em uso.');
 
-  // RN-09: o dia de início (1) e o nome do período (automático) vêm dos padrões do banco.
-  // As categorias padrão (RN-15) entram junto com a funcionalidade de categorias.
+  // RN-09: o dia de início (1) e o nome do período (automático) vêm dos padrões do banco,
+  // e a conta nasce com as categorias padrão (RN-15), tudo na mesma operação.
   const user = await prisma.user.create({
-    data: { name: input.name, email: input.email, passwordHash: await hashPassword(input.password) },
+    data: {
+      name: input.name,
+      email: input.email,
+      passwordHash: await hashPassword(input.password),
+      categories: {
+        create: DEFAULT_CATEGORIES.map((category) => ({ ...category, nameKey: categoryNameKey(category.name) })),
+      },
+    },
   });
 
   // Se o envio falhar, a conta continua criada: o usuário pode pedir o reenvio (RN-09h).
