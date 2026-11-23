@@ -28,9 +28,14 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 - **RN-09b — Link de redefinição.** Se a conta existir, o sistema envia ao e-mail um link com um código aleatório. O código é armazenado apenas como hash, vale por **30 minutos** e pode ser usado **uma única vez**. Uma nova solicitação invalida os códigos anteriores.
 - **RN-09c — Limite de solicitações.** São permitidas no máximo 3 solicitações por e-mail a cada 15 minutos.
 - **RN-09d — Nova senha.** Pelo link, o usuário define uma nova senha, seguindo RN-07. Após a redefinição, todas as sessões abertas da conta são encerradas e o usuário precisa entrar novamente.
-- **RN-09e — Envio.** O e-mail é enviado por um servidor SMTP configurado no ambiente. Sem SMTP configurado (ambiente de desenvolvimento), o link é exibido no console do servidor.
+- **RN-09e — Envio.** Os e-mails (de recuperação e de confirmação) são enviados por um servidor SMTP configurado no ambiente. Sem SMTP configurado (ambiente de desenvolvimento), o link é exibido no console do servidor.
 
-> Fora do escopo desta entrega: verificação de e-mail no cadastro.
+### Confirmação de e-mail
+
+- **RN-09f — Link de confirmação.** Ao criar a conta, o sistema envia ao e-mail um link de confirmação. O código é armazenado apenas como hash, vale por **24 horas** e pode ser usado **uma única vez**. Abrir o link confirma o e-mail mesmo sem estar logado (por exemplo, no celular).
+- **RN-09g — Acesso antes da confirmação.** Após o cadastro o usuário já entra logado (RN-08b), mas, enquanto o e-mail não for confirmado, vê apenas a tela "Confirme seu e-mail", com as opções de reenviar o link e de sair. As demais funcionalidades ficam bloqueadas. O mesmo vale ao entrar com uma conta ainda não confirmada.
+- **RN-09h — Reenvio.** São permitidos no máximo 3 envios do link de confirmação por conta a cada 15 minutos, contando o envio do cadastro. Um novo envio invalida os links anteriores.
+- **RN-09i — Confirmação pela recuperação.** Redefinir a senha pelo link recebido por e-mail (RN-09d) também confirma o e-mail, pois prova que o usuário tem acesso a ele.
 
 ## Mês financeiro
 
