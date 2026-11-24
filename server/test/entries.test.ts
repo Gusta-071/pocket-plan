@@ -13,7 +13,7 @@ let food: number; // despesa
 let leisure: number; // despesa
 let salary: number; // receita
 
-type Entry = { id: number; type: string; amountCents: number; date: string; categoryId: number; description: string | null; status: string };
+type Entry = { id: number; type: string; amountCents: number; date: string; categoryId: number; description: string | null; paid: boolean; overdue: boolean };
 
 const create = (body: object, sessionCookie = cookie) => request(app).post('/api/entries').set('Cookie', sessionCookie).send(body);
 const update = (id: number, body: object, sessionCookie = cookie) =>
@@ -86,28 +86,69 @@ describe('criação (RN-19 a RN-21, RN-23)', () => {
   });
 });
 
-describe('situação: previsto ou realizado (RN-22)', () => {
-  it('até hoje é realizado; depois de hoje, previsto', async () => {
+describe('situação: pendente ou pago (RN-22)', () => {
+  const setPaid = (id: number, paid: unknown, sessionCookie = cookie) =>
+    request(app).patch(`/api/entries/${id}/paid`).set('Cookie', sessionCookie).send({ paid });
+
+  it('sem informar, sugere pela data: até hoje pago, futuro pendente', async () => {
     const past = (await create(expense({ date: '2020-05-01' }))).body.entry;
     const now = (await create(expense({ date: today() }))).body.entry;
     const future = (await create(expense({ date: addMonths(today(), 1) }))).body.entry;
 
-    expect(past.status).toBe('REALIZED');
-    expect(now.status).toBe('REALIZED');
-    expect(future.status).toBe('PLANNED');
+    expect(past.paid).toBe(true);
+    expect(now.paid).toBe(true);
+    expect(future.paid).toBe(false);
   });
 
-  it('o previsto vira realizado sozinho quando a data chega', async () => {
+  it('o usuário pode informar a situação ao criar', async () => {
+    const unpaidPast = (await create(expense({ date: '2026-01-10', paid: false }))).body.entry;
+    const paidFuture = (await create(expense({ date: addMonths(today(), 1), paid: true }))).body.entry;
+
+    expect(unpaidPast.paid).toBe(false);
+    expect(paidFuture.paid).toBe(true);
+    expect((await create(expense({ paid: 'sim' }))).status).toBe(400);
+  });
+
+  it('a situação não muda sozinha quando a data chega', async () => {
     // Amanhã: avançar mais que 7 dias faria a sessão de teste expirar (RN-08).
     const date = addDays(today(), 1);
     await create(expense({ date }));
-    const before = (await list(`start=${date}&end=${date}`)).body.entries[0];
-    expect(before.status).toBe('PLANNED');
 
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(`${date}T15:00:00Z`));
     const after = (await list(`start=${date}&end=${date}`)).body.entries[0];
-    expect(after.status).toBe('REALIZED');
+    expect(after.paid).toBe(false);
+  });
+
+  it('pendente com data passada fica atrasado (RN-22a)', async () => {
+    const yesterday = addDays(today(), -1);
+    await create(expense({ date: yesterday, paid: false }));
+    await create(expense({ date: today(), paid: false }));
+    await create(expense({ date: yesterday, paid: true }));
+
+    const { entries, totals } = (await list(`start=${yesterday}&end=${today()}`)).body;
+    expect(entries.map((e: Entry) => [e.date, e.paid, e.overdue])).toEqual([
+      [today(), false, false],
+      [yesterday, true, false],
+      [yesterday, false, true],
+    ]);
+    expect(totals.overdueCount).toBe(1);
+  });
+
+  it('marca e desmarca pela lista (RN-22b)', async () => {
+    const entry = (await create(expense({ date: addMonths(today(), 1) }))).body.entry;
+
+    const marked = await setPaid(entry.id, true);
+    expect(marked.status).toBe(200);
+    expect(marked.body.entry.paid).toBe(true);
+    expect((await setPaid(entry.id, false)).body.entry.paid).toBe(false);
+    expect((await setPaid(entry.id, 'sim')).status).toBe(400);
+  });
+
+  it('não marca lançamentos de outro usuário (RN-04)', async () => {
+    const entry = (await create(expense())).body.entry;
+    const other = await createVerifiedUser(app, 'outro@example.com');
+    expect((await setPaid(entry.id, false, other)).status).toBe(404);
   });
 });
 
@@ -126,16 +167,15 @@ describe('listagem e totais (RN-26, RN-27)', () => {
 
   it('calcula receitas, despesas e resultado', async () => {
     const { totals } = (await list('start=2026-11-01&end=2026-11-30')).body;
-    expect(totals).toMatchObject({ incomeRealized: 500000, expenseRealized: 12500, result: 487500 });
+    expect(totals).toMatchObject({ incomePaid: 500000, expensePaid: 12500, result: 487500 });
   });
 
-  it('separa previsto do realizado no resultado projetado', async () => {
-    const future = addMonths(today(), 1);
-    await create({ type: 'INCOME', amountCents: 1000, date: future, categoryId: salary });
-    await create(expense({ amountCents: 300, date: future }));
+  it('separa pendente de pago no resultado projetado', async () => {
+    await create({ type: 'INCOME', amountCents: 1000, date: '2026-11-20', categoryId: salary, paid: false });
+    await create(expense({ amountCents: 300, date: '2026-11-20', paid: false }));
 
-    const { totals } = (await list(`start=${future}&end=${future}`)).body;
-    expect(totals).toMatchObject({ result: 0, incomePlanned: 1000, expensePlanned: 300, projected: 700 });
+    const { totals } = (await list('start=2026-11-01&end=2026-11-30')).body;
+    expect(totals).toMatchObject({ result: 487500, incomePending: 1000, expensePending: 300, projected: 488200 });
   });
 
   it('filtra por tipo e por categoria', async () => {
@@ -144,7 +184,7 @@ describe('listagem e totais (RN-26, RN-27)', () => {
 
     const byCategory = await list(`start=2026-11-01&end=2026-11-30&categoryId=${leisure}`);
     expect(byCategory.body.entries.map((e: Entry) => e.amountCents)).toEqual([2500]);
-    expect(byCategory.body.totals.expenseRealized).toBe(2500);
+    expect(byCategory.body.totals.expensePaid).toBe(2500);
   });
 
   it('exige um intervalo válido', async () => {
@@ -159,13 +199,16 @@ describe('listagem e totais (RN-26, RN-27)', () => {
 });
 
 describe('edição e exclusão (RN-24, RN-25)', () => {
-  it('edita todos os campos e recalcula a situação', async () => {
+  it('edita todos os campos; mudar a data não muda a situação', async () => {
     const entry = (await create(expense({ date: '2026-11-10' }))).body.entry;
     const future = addMonths(today(), 2);
 
     const response = await update(entry.id, { type: 'INCOME', amountCents: 1234, date: future, categoryId: salary, description: 'Bônus' });
     expect(response.status).toBe(200);
-    expect(response.body.entry).toMatchObject({ type: 'INCOME', amountCents: 1234, categoryId: salary, description: 'Bônus', status: 'PLANNED' });
+    expect(response.body.entry).toMatchObject({ type: 'INCOME', amountCents: 1234, categoryId: salary, description: 'Bônus', paid: true });
+
+    const unpaid = await update(entry.id, { ...expense(), paid: false });
+    expect(unpaid.body.entry.paid).toBe(false);
   });
 
   it('a edição tem as mesmas validações da criação', async () => {
@@ -199,6 +242,12 @@ describe('repetir mensalmente (RN-25b a RN-25d)', () => {
     expect(response.status).toBe(201);
     expect(response.body.entries.map((e: Entry) => e.date)).toEqual(['2026-12-10', '2027-01-10', '2027-02-10']);
     expect(response.body.entries.every((e: Entry) => e.amountCents === 5000 && e.categoryId === food && e.description === 'Mercado')).toBe(true);
+  });
+
+  it('cada cópia recebe a situação sugerida pela própria data (RN-22)', async () => {
+    const entry = (await create(expense({ date: addMonths(today(), -2), paid: false }))).body.entry;
+    const copies = (await repeat(entry.id, 3)).body.entries;
+    expect(copies.map((e: Entry) => e.paid)).toEqual([true, true, false]);
   });
 
   it('usa o último dia do mês quando o dia não existe', async () => {

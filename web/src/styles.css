@@ -423,6 +423,40 @@ a { color: var(--color-primary); font-weight: 600; }
   font-weight: 700;
 }
 .badge:first-child { margin-left: 0; }
+.badge--danger { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* Check de pago/recebido (RN-22b): fica ao lado da linha, que abre o lançamento. */
+.entry-row { display: flex; align-items: center; }
+.entry-row .list__item { padding-left: 4px; }
+.check {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: transparent;
+  cursor: pointer;
+}
+.check::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.check svg { grid-area: 1 / 1; position: relative; }
+.check:hover::before { border-color: var(--color-primary); }
+.check:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -4px; border-radius: 50%; }
+.check--overdue::before { border-color: var(--color-danger); }
+.check--on { color: var(--color-on-primary); }
+.check--on::before { border-color: var(--color-primary); background: var(--color-primary); }
 
 .empty { padding: 32px 16px; text-align: center; }
 .empty p { margin: 0 0 4px; }

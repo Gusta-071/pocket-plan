@@ -30,6 +30,8 @@ npm run dev
 
 Abra http://localhost:5173. A API roda em http://localhost:3333, e o Vite encaminha as chamadas `/api` para ela.
 
+Para ver as telas com dados, rode `npm run db:seed` e entre com **demo@pocket-plan.local** / **demo1234**. A conta tem cerca de 7 meses de lançamentos, com alguns pendentes e atrasados, e é recriada do zero a cada execução.
+
 Sem `SMTP_HOST` no `.env`, os e-mails de redefinição de senha não são enviados: o link aparece no console da API.
 
 Os testes usam um banco próprio (`data/test.db`), recriado a cada execução, então não mexem nos seus dados.
@@ -46,6 +48,7 @@ Os testes usam um banco próprio (`data/test.db`), recriado a cada execução, e
 | `npm run db:generate` | Gera o cliente do Prisma |
 | `npm run db:migrate` | Cria e aplica uma migration em desenvolvimento |
 | `npm run db:deploy` | Aplica as migrations existentes no banco |
+| `npm run db:seed` | Cria (ou recria) a conta de demonstração com lançamentos de exemplo |
 | `npm run db:studio` | Abre o Prisma Studio para inspecionar o banco |
 
 ## Estrutura

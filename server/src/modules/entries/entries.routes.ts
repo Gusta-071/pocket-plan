@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { currentUser, requireAuth } from '../auth/auth.session.js';
-import { entryIdSchema, entrySchema, listEntriesQuerySchema, repeatSchema } from './entries.schemas.js';
+import { entryIdSchema, entrySchema, listEntriesQuerySchema, paidSchema, repeatSchema } from './entries.schemas.js';
 import * as entries from './entries.service.js';
 
 export const entryRoutes = Router();
@@ -18,6 +18,11 @@ entryRoutes.post('/', async (req, res) => {
 entryRoutes.put('/:id', async (req, res) => {
   const entry = await entries.updateEntry(currentUser(res).id, entryIdSchema.parse(req.params.id), entrySchema.parse(req.body));
   res.json({ entry });
+});
+
+entryRoutes.patch('/:id/paid', async (req, res) => {
+  const { paid } = paidSchema.parse(req.body);
+  res.json({ entry: await entries.setPaid(currentUser(res).id, entryIdSchema.parse(req.params.id), paid) });
 });
 
 entryRoutes.delete('/:id', async (req, res) => {

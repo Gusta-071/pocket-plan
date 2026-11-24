@@ -5,8 +5,6 @@ import { prisma } from '../../lib/prisma.js';
 import type { CategoryType } from '../categories/categories.constants.js';
 import type { entrySchema, listEntriesQuerySchema } from './entries.schemas.js';
 
-export type EntryStatus = 'REALIZED' | 'PLANNED';
-
 export type PublicEntry = {
   id: number;
   type: CategoryType;
@@ -14,15 +12,25 @@ export type PublicEntry = {
   date: string;
   categoryId: number;
   description: string | null;
-  /** RN-22: calculada pela data, nunca armazenada. */
-  status: EntryStatus;
+  /** RN-22: pago (despesa) ou recebido (receita), marcado pelo usuário. */
+  paid: boolean;
+  /** RN-22a: pendente com data anterior a hoje. Calculado, nunca armazenado. */
+  overdue: boolean;
 };
 
-type EntryRow = { id: number; type: string; amountCents: number; date: string; categoryId: number; description: string | null };
+type EntryRow = {
+  id: number;
+  type: string;
+  amountCents: number;
+  date: string;
+  categoryId: number;
+  description: string | null;
+  paid: boolean;
+};
 
-/** RN-22: até hoje é realizado; depois de hoje, previsto. */
-export function statusOf(date: string, todayValue = today()): EntryStatus {
-  return date <= todayValue ? 'REALIZED' : 'PLANNED';
+/** RN-22: sugestão de situação pela data. Até hoje, pago/recebido; futura, pendente. */
+export function suggestedPaid(date: string, todayValue = today()): boolean {
+  return date <= todayValue;
 }
 
 function toPublic(entry: EntryRow, todayValue: string): PublicEntry {
@@ -33,7 +41,8 @@ function toPublic(entry: EntryRow, todayValue: string): PublicEntry {
     date: entry.date,
     categoryId: entry.categoryId,
     description: entry.description,
-    status: statusOf(entry.date, todayValue),
+    paid: entry.paid,
+    overdue: !entry.paid && entry.date < todayValue,
   };
 }
 
@@ -60,7 +69,7 @@ async function findOwned(userId: number, id: number) {
 
 /**
  * Lançamentos de um intervalo de datas (normalmente um período financeiro), com totais.
- * Os totais seguem os filtros aplicados e separam realizado de previsto (RN-26, RN-27).
+ * Os totais seguem os filtros aplicados e separam pago/recebido de pendente (RN-26, RN-27).
  */
 export async function listEntries(userId: number, query: z.infer<typeof listEntriesQuerySchema>) {
   const todayValue = today();
@@ -75,28 +84,37 @@ export async function listEntries(userId: number, query: z.infer<typeof listEntr
   });
   const entries = rows.map((row) => toPublic(row, todayValue));
 
-  const totals = { incomeRealized: 0, incomePlanned: 0, expenseRealized: 0, expensePlanned: 0 };
+  const totals = { incomePaid: 0, incomePending: 0, expensePaid: 0, expensePending: 0 };
+  let overdueCount = 0;
   for (const entry of entries) {
-    const key = `${entry.type === 'INCOME' ? 'income' : 'expense'}${entry.status === 'REALIZED' ? 'Realized' : 'Planned'}` as const;
+    const key = `${entry.type === 'INCOME' ? 'income' : 'expense'}${entry.paid ? 'Paid' : 'Pending'}` as const;
     totals[key] += entry.amountCents;
+    if (entry.overdue) overdueCount += 1;
   }
-  const result = totals.incomeRealized - totals.expenseRealized; // RN-26
-  const projected = result + totals.incomePlanned - totals.expensePlanned; // RN-27
+  const result = totals.incomePaid - totals.expensePaid; // RN-26
+  const projected = result + totals.incomePending - totals.expensePending; // RN-27
 
-  return { entries, totals: { ...totals, result, projected } };
+  return { entries, totals: { ...totals, result, projected, overdueCount } };
 }
 
 /** RN-19 a RN-23. Duplicar (RN-25a) também usa esta rota, com os dados ajustados. */
 export async function createEntry(userId: number, input: EntryInput): Promise<PublicEntry> {
   await checkCategory(userId, input);
-  return toPublic(await prisma.entry.create({ data: { ...input, userId } }), today());
+  const paid = input.paid ?? suggestedPaid(input.date);
+  return toPublic(await prisma.entry.create({ data: { ...input, paid, userId } }), today());
 }
 
-/** RN-24: todos os campos podem ser editados, com as validações da criação. */
+/** RN-24: todos os campos podem ser editados, com as validações da criação. Mudar a data não muda a situação. */
 export async function updateEntry(userId: number, id: number, input: EntryInput): Promise<PublicEntry> {
   await findOwned(userId, id);
   await checkCategory(userId, input);
   return toPublic(await prisma.entry.update({ where: { id }, data: input }), today());
+}
+
+/** RN-22b: marca ou desmarca como pago/recebido. */
+export async function setPaid(userId: number, id: number, paid: boolean): Promise<PublicEntry> {
+  await findOwned(userId, id);
+  return toPublic(await prisma.entry.update({ where: { id }, data: { paid } }), today());
 }
 
 /** RN-25: exclusão definitiva (a confirmação fica na interface). */
@@ -108,6 +126,7 @@ export async function deleteEntry(userId: number, id: number): Promise<void> {
 /**
  * RN-25b a RN-25d: cria `times` cópias independentes nos meses seguintes.
  * Ou todas são criadas, ou nenhuma; se passar do limite de datas, informa quantas cabem.
+ * Cada cópia recebe a situação sugerida pela própria data (RN-22).
  */
 export async function repeatEntry(userId: number, id: number, times: number): Promise<PublicEntry[]> {
   const original = await findOwned(userId, id);
@@ -123,6 +142,7 @@ export async function repeatEntry(userId: number, id: number, times: number): Pr
     throw new AppError(400, 'REPEAT_LIMIT', message, [{ path: 'times', message }]);
   }
 
+  const todayValue = today();
   const data = dates.map((date) => ({
     userId,
     type: original.type,
@@ -130,8 +150,8 @@ export async function repeatEntry(userId: number, id: number, times: number): Pr
     categoryId: original.categoryId,
     description: original.description,
     date,
+    paid: suggestedPaid(date, todayValue),
   }));
   const created = await prisma.$transaction(data.map((copy) => prisma.entry.create({ data: copy })));
-  const todayValue = today();
   return created.map((entry) => toPublic(entry, todayValue));
 }

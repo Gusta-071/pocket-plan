@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, formatDate, parseDate, periodContaining, shiftPeriod, today } from '../../../shared/period';
 import type { User } from '../auth/AuthContext';
-import { EntrySheet, type Entry, type EntrySheetMode } from '../components/EntrySheet';
+import { EntrySheet, PAID_LABELS, type Entry, type EntrySheetMode } from '../components/EntrySheet';
 import { Alert } from '../components/Form';
 import { api } from '../lib/api';
 import { CATEGORY_COLORS, type Category, type CategoryType } from '../lib/categories';
@@ -9,12 +9,13 @@ import { formatMoney, formatSigned } from '../lib/money';
 import { useCategories } from '../lib/useCategories';
 
 type Totals = {
-  incomeRealized: number;
-  incomePlanned: number;
-  expenseRealized: number;
-  expensePlanned: number;
+  incomePaid: number;
+  incomePending: number;
+  expensePaid: number;
+  expensePending: number;
   result: number;
   projected: number;
+  overdueCount: number;
 };
 
 const WEEKDAYS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
@@ -94,8 +95,31 @@ export function EntriesPage({ user }: { user: User }) {
     else groups.push({ date: entry.date, entries: [entry] });
   }
 
+  /**
+   * RN-22b: marca/desmarca direto na lista. O check muda na hora; os totais vêm da API em seguida.
+   * Se a API falhar, o check volta ao que era.
+   */
+  async function togglePaid(entry: Entry) {
+    const paid = !entry.paid;
+    const patch = (value: boolean) =>
+      setData((current) =>
+        current && {
+          ...current,
+          entries: current.entries.map((e) => (e.id === entry.id ? { ...e, paid: value, overdue: !value && e.date < today() } : e)),
+        },
+      );
+    patch(paid);
+    try {
+      await api(`/entries/${entry.id}/paid`, { method: 'PATCH', body: JSON.stringify({ paid }) });
+      void load();
+    } catch (err) {
+      patch(entry.paid);
+      setLoadError(err instanceof Error ? err.message : 'Não foi possível atualizar o lançamento.');
+    }
+  }
+
   const totals = data?.totals;
-  const hasPlanned = totals ? totals.incomePlanned + totals.expensePlanned > 0 : false;
+  const hasPending = totals ? totals.incomePending + totals.expensePending > 0 : false;
 
   return (
     <>
@@ -124,25 +148,25 @@ export function EntriesPage({ user }: { user: User }) {
       )}
 
       {totals && type !== 'ALL' && (
-        // Filtrando um tipo só, "resultado" não faz sentido: mostra o realizado, o previsto e o total desse tipo.
+        // Filtrando um tipo só, "resultado" não faz sentido: mostra o pago, o pendente e o total desse tipo.
         <section className="card summary" aria-label="Totais do período">
           {(() => {
             const kind = type === 'INCOME' ? 'income' : 'expense';
-            const realized = type === 'INCOME' ? totals.incomeRealized : totals.expenseRealized;
-            const planned = type === 'INCOME' ? totals.incomePlanned : totals.expensePlanned;
+            const paid = type === 'INCOME' ? totals.incomePaid : totals.expensePaid;
+            const pending = type === 'INCOME' ? totals.incomePending : totals.expensePending;
             return (
               <>
                 <div>
-                  <span className="muted small">{type === 'INCOME' ? 'Recebido' : 'Gasto'}</span>
-                  <strong className={`amount amount--${kind}`}>{formatMoney(realized)}</strong>
+                  <span className="muted small">{type === 'INCOME' ? 'Recebido' : 'Pago'}</span>
+                  <strong className={`amount amount--${kind}`}>{formatMoney(paid)}</strong>
                 </div>
                 <div>
                   <span className="muted small">{type === 'INCOME' ? 'A receber' : 'A pagar'}</span>
-                  <strong className="amount">{formatMoney(planned)}</strong>
+                  <strong className="amount">{formatMoney(pending)}</strong>
                 </div>
                 <div>
                   <span className="muted small">Total</span>
-                  <strong className={`amount amount--${kind}`}>{formatMoney(realized + planned)}</strong>
+                  <strong className={`amount amount--${kind}`}>{formatMoney(paid + pending)}</strong>
                 </div>
               </>
             );
@@ -153,20 +177,20 @@ export function EntriesPage({ user }: { user: User }) {
       {totals && type === 'ALL' && (
         <section className="card summary" aria-label="Totais do período">
           <div>
-            <span className="muted small">Receitas</span>
-            <strong className="amount amount--income">{formatMoney(totals.incomeRealized)}</strong>
+            <span className="muted small">Recebido</span>
+            <strong className="amount amount--income">{formatMoney(totals.incomePaid)}</strong>
           </div>
           <div>
-            <span className="muted small">Despesas</span>
-            <strong className="amount amount--expense">{formatMoney(totals.expenseRealized)}</strong>
+            <span className="muted small">Pago</span>
+            <strong className="amount amount--expense">{formatMoney(totals.expensePaid)}</strong>
           </div>
           <div>
             <span className="muted small">Resultado</span>
             <strong className={`amount ${totals.result < 0 ? 'amount--expense' : ''}`}>{formatMoney(totals.result)}</strong>
           </div>
-          {hasPlanned && (
+          {hasPending && (
             <p className="summary__projected small">
-              Com os previstos ({formatSigned(totals.incomePlanned, 'INCOME')} / {formatSigned(totals.expensePlanned, 'EXPENSE')}), o
+              Com os pendentes ({formatSigned(totals.incomePending, 'INCOME')} / {formatSigned(totals.expensePending, 'EXPENSE')}), o
               resultado projetado é <strong>{formatMoney(totals.projected)}</strong>.
             </p>
           )}
@@ -225,8 +249,23 @@ export function EntriesPage({ user }: { user: User }) {
           <ul className="list">
             {group.entries.map((entry) => {
               const category = byId.get(entry.categoryId);
+              const label = entry.description || category?.name || 'lançamento';
+              const paidLabel = PAID_LABELS[entry.type].toLowerCase();
               return (
-                <li key={entry.id}>
+                <li key={entry.id} className="entry-row">
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={entry.paid}
+                    aria-label={`${label}: ${paidLabel}`}
+                    title={entry.paid ? `Marcar como pendente` : `Marcar como ${paidLabel}`}
+                    className={`check ${entry.paid ? 'check--on' : ''} ${entry.overdue ? 'check--overdue' : ''}`}
+                    onClick={() => void togglePaid(entry)}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    </svg>
+                  </button>
                   <button type="button" className="list__item entry" onClick={() => setSheet({ kind: 'edit', entry })}>
                     <span
                       className="color-dot"
@@ -234,10 +273,14 @@ export function EntriesPage({ user }: { user: User }) {
                       aria-hidden="true"
                     />
                     <span className="entry__text">
-                      <span className="list__label">{entry.description || category?.name}</span>
+                      <span className="list__label">{label}</span>
                       <span className="muted small">
                         {entry.description ? category?.name : null}
-                        {entry.status === 'PLANNED' && <span className="badge">Previsto</span>}
+                        {entry.overdue ? (
+                          <span className="badge badge--danger">Atrasado</span>
+                        ) : (
+                          !entry.paid && <span className="badge">Pendente</span>
+                        )}
                       </span>
                     </span>
                     <span className={`amount amount--${entry.type === 'INCOME' ? 'income' : 'expense'}`}>

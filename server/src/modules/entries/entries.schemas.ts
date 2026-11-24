@@ -32,9 +32,15 @@ const entryFields = {
     .max(120, { error: 'A descrição deve ter no máximo 120 caracteres.' })
     .nullish()
     .transform((value) => (value ? value : null)),
+  // RN-22: pago/recebido. Opcional: na criação, sem o campo, vale a sugestão pela data;
+  // na edição, sem o campo, a situação atual é mantida (RN-24).
+  paid: z.boolean({ error: 'Situação inválida.' }).optional(),
 };
 
 export const entrySchema = z.object(entryFields);
+
+/** RN-22b: marcar ou desmarcar pela lista. */
+export const paidSchema = z.object({ paid: z.boolean({ error: 'Informe se está pago.' }) });
 
 export const entryIdSchema = z.coerce.number({ error: 'Lançamento inválido.' }).int().positive();
 
