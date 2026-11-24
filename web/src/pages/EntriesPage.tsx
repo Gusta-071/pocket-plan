@@ -132,179 +132,188 @@ export function EntriesPage({ user }: { user: User }) {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header wide-header">
         <h1>Lançamentos</h1>
+        <div className="wide-header__period">
+          <PeriodNav period={period} offset={offset} onChange={setOffset} />
+        </div>
       </div>
 
-      <PeriodNav period={period} offset={offset} onChange={setOffset} />
-
-      {totals && type !== 'ALL' && (
-        // Filtrando um tipo só, "resultado" não faz sentido: mostra o pago, o pendente e o total desse tipo.
-        <section className="card summary" aria-label="Totais do período">
-          {(() => {
-            const kind = type === 'INCOME' ? 'income' : 'expense';
-            const paid = type === 'INCOME' ? totals.incomePaid : totals.expensePaid;
-            const pending = type === 'INCOME' ? totals.incomePending : totals.expensePending;
-            return (
-              <>
-                <div>
-                  <span className="muted small">{type === 'INCOME' ? 'Recebido' : 'Pago'}</span>
-                  <strong className={`amount amount--${kind}`}>{formatMoney(paid)}</strong>
-                </div>
-                <div>
-                  <span className="muted small">{type === 'INCOME' ? 'A receber' : 'A pagar'}</span>
-                  <strong className="amount">{formatMoney(pending)}</strong>
-                </div>
-                <div>
-                  <span className="muted small">Total</span>
-                  <strong className={`amount amount--${kind}`}>{formatMoney(paid + pending)}</strong>
-                </div>
-              </>
-            );
-          })()}
-        </section>
-      )}
-
-      {totals && type === 'ALL' && (
-        <section className="card summary" aria-label="Totais do período">
-          <div>
-            <span className="muted small">Recebido</span>
-            <strong className="amount amount--income">{formatMoney(totals.incomePaid)}</strong>
-          </div>
-          <div>
-            <span className="muted small">Pago</span>
-            <strong className="amount amount--expense">{formatMoney(totals.expensePaid)}</strong>
-          </div>
-          <div>
-            <span className="muted small">Resultado</span>
-            <strong className={`amount ${totals.result < 0 ? 'amount--expense' : ''}`}>{formatMoney(totals.result)}</strong>
-          </div>
-          {hasPending && (
-            <p className="summary__projected small">
-              Com os pendentes ({formatSigned(totals.incomePending, 'INCOME')} / {formatSigned(totals.expensePending, 'EXPENSE')}), o
-              resultado projetado é <strong>{formatMoney(totals.projected)}</strong>.
-            </p>
+      {/* No PC: a lista à esquerda; totais e filtros numa coluna fixa à direita. */}
+      <div className="entries">
+        <div className="entries__side">
+          {totals && type !== 'ALL' && (
+            // Filtrando um tipo só, "resultado" não faz sentido: mostra o pago, o pendente e o total desse tipo.
+            <section className="card summary" aria-label="Totais do período">
+              {(() => {
+                const kind = type === 'INCOME' ? 'income' : 'expense';
+                const paid = type === 'INCOME' ? totals.incomePaid : totals.expensePaid;
+                const pending = type === 'INCOME' ? totals.incomePending : totals.expensePending;
+                return (
+                  <>
+                    <div>
+                      <span className="muted small">{type === 'INCOME' ? 'Recebido' : 'Pago'}</span>
+                      <strong className={`amount amount--${kind}`}>{formatMoney(paid)}</strong>
+                    </div>
+                    <div>
+                      <span className="muted small">{type === 'INCOME' ? 'A receber' : 'A pagar'}</span>
+                      <strong className="amount">{formatMoney(pending)}</strong>
+                    </div>
+                    <div>
+                      <span className="muted small">Total</span>
+                      <strong className={`amount amount--${kind}`}>{formatMoney(paid + pending)}</strong>
+                    </div>
+                  </>
+                );
+              })()}
+            </section>
           )}
-        </section>
-      )}
 
-      <div className="filters">
-        <div className="segmented segmented--three" role="radiogroup" aria-label="Filtrar por tipo">
-          {(
-            [
-              ['ALL', 'Todos'],
-              ['INCOME', 'Receitas'],
-              ['EXPENSE', 'Despesas'],
-            ] as const
-          ).map(([value, label]) => (
-            <button key={value} type="button" role="radio" aria-checked={type === value} className="segmented__option" onClick={() => changeType(value)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <label className="visually-hidden" htmlFor="filter-category">
-          Filtrar por categoria
-        </label>
-        <select
-          id="filter-category"
-          className="filters__select"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-        >
-          <option value="ALL">Todas as categorias</option>
-          {filterOptions.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        {type !== 'INCOME' && methods && cards && (
-          <>
-            <label className="visually-hidden" htmlFor="filter-payment">
-              Filtrar por forma de pagamento
+          {totals && type === 'ALL' && (
+            <section className="card summary" aria-label="Totais do período">
+              <div>
+                <span className="muted small">Recebido</span>
+                <strong className="amount amount--income">{formatMoney(totals.incomePaid)}</strong>
+              </div>
+              <div>
+                <span className="muted small">Pago</span>
+                <strong className="amount amount--expense">{formatMoney(totals.expensePaid)}</strong>
+              </div>
+              <div>
+                <span className="muted small">Resultado</span>
+                <strong className={`amount ${totals.result < 0 ? 'amount--expense' : ''}`}>{formatMoney(totals.result)}</strong>
+              </div>
+              {hasPending && (
+                <p className="summary__projected small">
+                  Com os pendentes ({formatSigned(totals.incomePending, 'INCOME')} / {formatSigned(totals.expensePending, 'EXPENSE')}), o
+                  resultado projetado é <strong>{formatMoney(totals.projected)}</strong>.
+                </p>
+              )}
+            </section>
+          )}
+
+          <div className="filters">
+            <div className="segmented segmented--three" role="radiogroup" aria-label="Filtrar por tipo">
+              {(
+                [
+                  ['ALL', 'Todos'],
+                  ['INCOME', 'Receitas'],
+                  ['EXPENSE', 'Despesas'],
+                ] as const
+              ).map(([value, label]) => (
+                <button key={value} type="button" role="radio" aria-checked={type === value} className="segmented__option" onClick={() => changeType(value)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <label className="visually-hidden" htmlFor="filter-category">
+              Filtrar por categoria
             </label>
-            <select id="filter-payment" className="filters__select" value={payment} onChange={(e) => setPayment(e.target.value)}>
-              <option value="ALL">Todas as formas de pagamento</option>
-              {methods.map((method) => (
-                <option key={method.id} value={`m:${method.id}`}>
-                  {method.name}
+            <select
+              id="filter-category"
+              className="filters__select"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+            >
+              <option value="ALL">Todas as categorias</option>
+              {filterOptions.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
                 </option>
               ))}
-              {cards.length > 0 && (
-                <optgroup label="Cartões">
-                  {cards.map((card) => (
-                    <option key={card.id} value={`c:${card.id}`}>
-                      {card.name}
-                      {card.archived ? ' (arquivado)' : ''}
+            </select>
+            {type !== 'INCOME' && methods && cards && (
+              <>
+                <label className="visually-hidden" htmlFor="filter-payment">
+                  Filtrar por forma de pagamento
+                </label>
+                <select id="filter-payment" className="filters__select" value={payment} onChange={(e) => setPayment(e.target.value)}>
+                  <option value="ALL">Todas as formas de pagamento</option>
+                  {methods.map((method) => (
+                    <option key={method.id} value={`m:${method.id}`}>
+                      {method.name}
                     </option>
                   ))}
-                </optgroup>
-              )}
-            </select>
-          </>
-        )}
-      </div>
+                  {cards.length > 0 && (
+                    <optgroup label="Cartões">
+                      {cards.map((card) => (
+                        <option key={card.id} value={`c:${card.id}`}>
+                          {card.name}
+                          {card.archived ? ' (arquivado)' : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </>
+            )}
+          </div>
 
-      {(loadError || categoriesError) && <Alert kind="error">{loadError ?? categoriesError}</Alert>}
-      {!data && !loadError && (
-        <p className="muted" role="status">
-          Carregando…
-        </p>
-      )}
-
-      {data && groups.length === 0 && (
-        <div className="empty">
-          <p>Nenhum lançamento neste período{type !== 'ALL' || categoryId !== 'ALL' || payment !== 'ALL' ? ' com esses filtros' : ''}.</p>
-          <p className="muted small">Toque em “+” para registrar uma receita ou despesa.</p>
         </div>
-      )}
+        <div className="entries__main">
+          {(loadError || categoriesError) && <Alert kind="error">{loadError ?? categoriesError}</Alert>}
+          {!data && !loadError && (
+            <p className="muted" role="status">
+              Carregando…
+            </p>
+          )}
 
-      {groups.map((group) => (
-        <section key={group.date} className="day">
-          <h2 className="day__title">{dayHeading(group.date)}</h2>
-          <ul className="list">
-            {group.entries.map((entry) => {
-              const category = byId.get(entry.categoryId);
-              const label = entry.description || category?.name || 'lançamento';
-              const paidLabel = PAID_LABELS[entry.type].toLowerCase();
-              return (
-                <li key={entry.id} className="entry-row">
-                  <CheckButton
-                    checked={entry.paid}
-                    overdue={entry.overdue}
-                    label={`${label}: ${paidLabel}`}
-                    doneLabel={paidLabel}
-                    onToggle={() => void togglePaid(entry)}
-                  />
-                  <button type="button" className="list__item entry" onClick={() => setSheet({ kind: 'edit', entry })}>
-                    <span
-                      className="color-dot"
-                      style={{ background: category ? CATEGORY_COLORS[category.color].hex : undefined }}
-                      aria-hidden="true"
-                    />
-                    <span className="entry__text">
-                      <span className="list__label">{label}</span>
-                      <span className="muted small">
-                        {[entry.description ? category?.name : null, paymentLabel(entry, methods ?? [], cards ?? [])]
-                          .filter(Boolean)
-                          .join(' · ')}
-                        {entry.overdue ? (
-                          <span className="badge badge--danger">Atrasado</span>
-                        ) : (
-                          !entry.paid && <span className="badge">Pendente</span>
-                        )}
-                      </span>
-                    </span>
-                    <span className={`amount amount--${entry.type === 'INCOME' ? 'income' : 'expense'}`}>
-                      {formatSigned(entry.amountCents, entry.type)}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+          {data && groups.length === 0 && (
+            <div className="empty">
+              <p>Nenhum lançamento neste período{type !== 'ALL' || categoryId !== 'ALL' || payment !== 'ALL' ? ' com esses filtros' : ''}.</p>
+              <p className="muted small">Toque em “+” para registrar uma receita ou despesa.</p>
+            </div>
+          )}
+
+          {groups.map((group) => (
+            <section key={group.date} className="day">
+              <h2 className="day__title">{dayHeading(group.date)}</h2>
+              <ul className="list">
+                {group.entries.map((entry) => {
+                  const category = byId.get(entry.categoryId);
+                  const label = entry.description || category?.name || 'lançamento';
+                  const paidLabel = PAID_LABELS[entry.type].toLowerCase();
+                  return (
+                    <li key={entry.id} className="entry-row">
+                      <CheckButton
+                        checked={entry.paid}
+                        overdue={entry.overdue}
+                        label={`${label}: ${paidLabel}`}
+                        doneLabel={paidLabel}
+                        onToggle={() => void togglePaid(entry)}
+                      />
+                      <button type="button" className="list__item entry" onClick={() => setSheet({ kind: 'edit', entry })}>
+                        <span
+                          className="color-dot"
+                          style={{ background: category ? CATEGORY_COLORS[category.color].hex : undefined }}
+                          aria-hidden="true"
+                        />
+                        <span className="entry__text">
+                          <span className="list__label">{label}</span>
+                          <span className="muted small">
+                            {[entry.description ? category?.name : null, paymentLabel(entry, methods ?? [], cards ?? [])]
+                              .filter(Boolean)
+                              .join(' · ')}
+                            {entry.overdue ? (
+                              <span className="badge badge--danger">Atrasado</span>
+                            ) : (
+                              !entry.paid && <span className="badge">Pendente</span>
+                            )}
+                          </span>
+                        </span>
+                        <span className={`amount amount--${entry.type === 'INCOME' ? 'income' : 'expense'}`}>
+                          {formatSigned(entry.amountCents, entry.type)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+
+        </div>
+      </div>
 
       <button
         type="button"

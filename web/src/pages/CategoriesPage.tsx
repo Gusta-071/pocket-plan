@@ -52,7 +52,6 @@ export function CategoriesPage() {
     void load();
   }, [load]);
 
-  const visible = categories?.filter((category) => category.type === type) ?? [];
   const sameType = (category: Category) => categories?.filter((c) => c.type === category.type) ?? [];
 
   function closeAndReload() {
@@ -61,15 +60,78 @@ export function CategoriesPage() {
     void reloadBudgets();
   }
 
+  const ofType = (t: CategoryType) => categories?.filter((category) => category.type === t) ?? [];
+
   // As despesas aparecem agrupadas pela classe (RN-14a).
-  const groups =
-    type === 'EXPENSE'
+  function groupsOf(t: CategoryType) {
+    const items = ofType(t);
+    return t === 'EXPENSE'
       ? EXPENSE_CLASSES.map((expenseClass) => ({
           expenseClass,
           title: EXPENSE_CLASS_LABELS[expenseClass].plural,
-          items: visible.filter((c) => c.expenseClass === expenseClass),
+          items: items.filter((c) => c.expenseClass === expenseClass),
         })).filter((group) => group.items.length > 0)
-      : [{ expenseClass: null, title: null, items: visible }];
+      : [{ expenseClass: null, title: null, items }];
+  }
+
+  /** Uma coluna por tipo: no PC, despesas e receitas lado a lado; no celular, uma de cada vez. */
+  function column(t: CategoryType) {
+    const count = ofType(t).length;
+    return (
+      <section key={t} className={`categories__column ${type === t ? '' : 'categories__column--inactive'}`} aria-label={TYPE_LABELS[t].plural}>
+        <div className="categories__column-header">
+          <h2>{TYPE_LABELS[t].plural}</h2>
+          <button className="button" type="button" onClick={() => setEditing({ mode: 'create', type: t })} disabled={count >= MAX_PER_TYPE}>
+            + Nova
+          </button>
+        </div>
+        {groupsOf(t).map((group) => (
+          <section key={group.title ?? 'all'}>
+            {group.title && (
+              <div className="class-group__header">
+                <h3 className="class-group__title">{group.title}</h3>
+                {/* RN-29a: limite da classe inteira. Investimento tem meta, editada no painel (RN-29b). */}
+                {isLimited(group.expenseClass) && budgets && (
+                  <button
+                    type="button"
+                    className="link-button small"
+                    onClick={() => setEditing({ mode: 'class-limit', expenseClass: group.expenseClass as LimitedClass })}
+                  >
+                    {budgets.classLimits[group.expenseClass] === null
+                      ? 'Definir limite da classe'
+                      : `Limite da classe: ${formatMoney(budgets.classLimits[group.expenseClass]!)}`}
+                  </button>
+                )}
+              </div>
+            )}
+            {isLimited(group.expenseClass) && budgets?.classWarnings[group.expenseClass] && (
+              <p className="alert alert--warning small" role="status">
+                A soma dos limites das categorias passou do limite da classe. Tudo bem, mas confira se é isso mesmo.
+              </p>
+            )}
+            <ul className="list" aria-label={group.title ?? TYPE_LABELS[t].plural}>
+              {group.items.map((category) => (
+                <li key={category.id}>
+                  <button type="button" className="list__item" onClick={() => setEditing({ mode: 'edit', category })}>
+                    <span className="color-dot" style={{ background: CATEGORY_COLORS[category.color].hex }} aria-hidden="true" />
+                    <span className="list__label">{category.name}</span>
+                    {limitOf.has(category.id) && <span className="muted small">Limite {formatMoney(limitOf.get(category.id)!)}</span>}
+                    <span className="list__action" aria-hidden="true">
+                      Editar
+                    </span>
+                    <span className="visually-hidden">, editar</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+        <p className="muted small">
+          {count} de {MAX_PER_TYPE} categorias de {TYPE_LABELS[t].singular}.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <>
@@ -78,17 +140,10 @@ export function CategoriesPage() {
       </Link>
       <div className="page-header">
         <h1>Categorias</h1>
-        <button
-          className="button"
-          type="button"
-          onClick={() => setEditing({ mode: 'create', type })}
-          disabled={!categories || visible.length >= MAX_PER_TYPE}
-        >
-          + Nova
-        </button>
       </div>
 
-      <div className="segmented" role="tablist" aria-label="Tipo de categoria">
+      {/* No celular, escolhe o tipo; no PC, os dois aparecem lado a lado e a escolha some. */}
+      <div className="segmented categories__switch" role="tablist" aria-label="Tipo de categoria">
         {(['EXPENSE', 'INCOME'] as const).map((option) => (
           <button
             key={option}
@@ -118,56 +173,7 @@ export function CategoriesPage() {
         </p>
       )}
 
-      {categories && (
-        <>
-          {groups.map((group) => (
-            <section key={group.title ?? 'all'}>
-              {group.title && (
-                <div className="class-group__header">
-                  <h2 className="class-group__title">{group.title}</h2>
-                  {/* RN-29a: limite da classe inteira. Investimento tem meta, editada no painel (RN-29b). */}
-                  {isLimited(group.expenseClass) && budgets && (
-                    <button
-                      type="button"
-                      className="link-button small"
-                      onClick={() => setEditing({ mode: 'class-limit', expenseClass: group.expenseClass as LimitedClass })}
-                    >
-                      {budgets.classLimits[group.expenseClass] === null
-                        ? 'Definir limite da classe'
-                        : `Limite da classe: ${formatMoney(budgets.classLimits[group.expenseClass]!)}`}
-                    </button>
-                  )}
-                </div>
-              )}
-              {isLimited(group.expenseClass) && budgets?.classWarnings[group.expenseClass] && (
-                <p className="alert alert--warning small" role="status">
-                  A soma dos limites das categorias passou do limite da classe. Tudo bem, mas confira se é isso mesmo.
-                </p>
-              )}
-              <ul className="list" aria-label={group.title ?? TYPE_LABELS[type].plural}>
-                {group.items.map((category) => (
-                  <li key={category.id}>
-                    <button type="button" className="list__item" onClick={() => setEditing({ mode: 'edit', category })}>
-                      <span className="color-dot" style={{ background: CATEGORY_COLORS[category.color].hex }} aria-hidden="true" />
-                      <span className="list__label">{category.name}</span>
-                      {limitOf.has(category.id) && (
-                        <span className="muted small">Limite {formatMoney(limitOf.get(category.id)!)}</span>
-                      )}
-                      <span className="list__action" aria-hidden="true">
-                        Editar
-                      </span>
-                      <span className="visually-hidden">, editar</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-          <p className="muted small">
-            {visible.length} de {MAX_PER_TYPE} categorias de {TYPE_LABELS[type].singular}.
-          </p>
-        </>
-      )}
+      {categories && <div className="categories">{(['EXPENSE', 'INCOME'] as const).map(column)}</div>}
 
       {editing?.mode === 'create' && (
         <CategorySheet type={editing.type} onClose={() => setEditing(null)} onSaved={closeAndReload} />

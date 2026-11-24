@@ -2,6 +2,7 @@ import express from 'express';
 import { errorHandler, notFoundHandler } from './lib/errors.js';
 import { assistantRoutes } from './modules/assistant/assistant.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
+import { billRoutes } from './modules/bills/bills.routes.js';
 import { budgetRoutes } from './modules/budgets/budgets.routes.js';
 import { cardRoutes } from './modules/cards/cards.routes.js';
 import { categoryRoutes } from './modules/categories/categories.routes.js';
@@ -20,6 +21,7 @@ export function createApp() {
   app.use('/api/health', healthRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/assistant', assistantRoutes);
+  app.use('/api/bills', billRoutes);
   app.use('/api/budgets', budgetRoutes);
   app.use('/api/cards', cardRoutes);
   app.use('/api/categories', categoryRoutes);

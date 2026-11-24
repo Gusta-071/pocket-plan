@@ -37,6 +37,7 @@ type Dashboard = {
     savings: Progress | null;
     investment: (Progress & { investedCents: number; pendingCents: number }) | null;
   };
+  billsProgress: { paidCount: number; totalCount: number; paidCents: number; pendingCents: number };
   byPaymentMethod: {
     paymentMethodId: number;
     kind: string;
@@ -422,10 +423,26 @@ function Bills({ data, categories, onToggle }: { data: Dashboard; categories: Ca
     <section className="dashboard__section">
       <div className="section-header">
         <h2>Contas a acertar</h2>
-        <Link href="/lancamentos" className="small">
-          Ver lançamentos
+        <Link href="/contas" className="small">
+          Ver todas as contas do mês
         </Link>
       </div>
+      {/* RN-50a: o mesmo progresso das Contas do mês. */}
+      {data.billsProgress.totalCount > 0 && (
+        <p className="small muted bills-mini">
+          <strong>
+            {data.billsProgress.paidCount} de {data.billsProgress.totalCount}
+          </strong>{' '}
+          contas do mês pagas
+          {data.billsProgress.pendingCents > 0 && ` · falta pagar ${formatMoney(data.billsProgress.pendingCents)}`}
+          <span className="meter" aria-hidden="true">
+            <span
+              className="meter__fill"
+              style={{ width: `${Math.round((data.billsProgress.paidCount / data.billsProgress.totalCount) * 100)}%` }}
+            />
+          </span>
+        </p>
+      )}
       {entries.length === 0 ? (
         <p className="card muted small dashboard__empty">Nada atrasado nem vencendo nos próximos 7 dias. 🎉</p>
       ) : (
