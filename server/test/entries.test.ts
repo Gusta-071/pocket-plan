@@ -225,7 +225,7 @@ describe('repetir mensalmente (RN-25b a RN-25d)', () => {
     const response = await repeat(entry.id, 5);
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('REPEAT_LIMIT');
-    expect(response.body.error.message).toContain('Só é possível repetir 2 vez(es)');
+    expect(response.body.error.message).toContain('Só é possível repetir 2 vezes');
     expect(await prisma.entry.count()).toBe(1);
 
     expect((await repeat(entry.id, 2)).status).toBe(201);

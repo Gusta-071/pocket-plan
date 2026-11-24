@@ -119,7 +119,7 @@ export async function repeatEntry(userId: number, id: number, times: number): Pr
     const message =
       possible === 0
         ? `Não é possível repetir: o próximo mês já passa do limite de ${formatDate(limit)} (12 meses à frente).`
-        : `Só é possível repetir ${possible} vez(es): depois disso, a data passa do limite de ${formatDate(limit)} (12 meses à frente).`;
+        : `Só é possível repetir ${possible} ${possible === 1 ? 'vez' : 'vezes'}: depois disso, a data passa do limite de ${formatDate(limit)} (12 meses à frente).`;
     throw new AppError(400, 'REPEAT_LIMIT', message, [{ path: 'times', message }]);
   }
 

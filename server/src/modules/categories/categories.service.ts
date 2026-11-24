@@ -89,40 +89,51 @@ export async function updateCategory(userId: number, id: number, input: z.infer<
 
 /** RN-18, RN-18a. `moveTo` é a categoria que recebe os lançamentos, quando houver. */
 export async function deleteCategory(userId: number, id: number, moveTo: number | undefined): Promise<void> {
-  const category = await findOwned(userId, id);
-
-  const sameType = await prisma.category.count({ where: { userId, type: category.type } });
-  if (sameType <= 1) {
-    throw new AppError(
+  const lastOfType = (type: string) =>
+    new AppError(
       409,
       'LAST_CATEGORY_OF_TYPE',
-      `Você precisa manter pelo menos uma categoria de ${category.type === 'INCOME' ? 'receita' : 'despesa'}. Renomeie esta em vez de excluí-la.`,
+      `Você precisa manter pelo menos uma categoria de ${type === 'INCOME' ? 'receita' : 'despesa'}. Renomeie esta em vez de excluí-la.`,
     );
-  }
-
-  if (moveTo !== undefined) {
-    if (moveTo === id) throw new AppError(400, 'INVALID_MOVE_TARGET', 'Escolha outra categoria para receber os lançamentos.');
-    const target = await prisma.category.findFirst({ where: { id: moveTo, userId } });
-    if (!target || target.type !== category.type) {
-      throw new AppError(400, 'INVALID_MOVE_TARGET', 'A categoria de destino deve ser sua e do mesmo tipo.');
-    }
-  }
-
-  const entries = await prisma.entry.count({ where: { categoryId: id } });
-  if (entries > 0 && moveTo === undefined) {
-    throw new AppError(
+  const hasEntries = (count: number) =>
+    new AppError(
       409,
       'CATEGORY_HAS_ENTRIES',
-      `Esta categoria tem ${entries} lançamento(s). Escolha para qual categoria movê-los antes de excluir.`,
+      `Esta categoria tem ${count} ${count === 1 ? 'lançamento' : 'lançamentos'}. Escolha para qual categoria movê-los antes de excluir.`,
     );
-  }
 
-  // Mover os lançamentos e excluir acontecem juntos: ou tudo, ou nada (RN-18).
+  // As conferências e as alterações ficam na mesma transação: ou tudo, ou nada (RN-18).
+  // Assim, um lançamento criado no meio do caminho não deixa a exclusão pela metade.
   // A remoção do orçamento da categoria entra com a funcionalidade de orçamento.
-  await prisma.$transaction(async (tx) => {
-    if (moveTo !== undefined) {
-      await tx.entry.updateMany({ where: { categoryId: id, userId }, data: { categoryId: moveTo } });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const category = await tx.category.findFirst({ where: { id, userId } });
+      if (!category) throw new AppError(404, 'CATEGORY_NOT_FOUND', 'Categoria não encontrada.');
+
+      if ((await tx.category.count({ where: { userId, type: category.type } })) <= 1) throw lastOfType(category.type);
+
+      if (moveTo !== undefined) {
+        if (moveTo === id) throw new AppError(400, 'INVALID_MOVE_TARGET', 'Escolha outra categoria para receber os lançamentos.');
+        const target = await tx.category.findFirst({ where: { id: moveTo, userId } });
+        if (!target || target.type !== category.type) {
+          throw new AppError(400, 'INVALID_MOVE_TARGET', 'A categoria de destino deve ser sua e do mesmo tipo.');
+        }
+        await tx.entry.updateMany({ where: { categoryId: id, userId }, data: { categoryId: moveTo } });
+      } else {
+        const entries = await tx.entry.count({ where: { categoryId: id } });
+        if (entries > 0) throw hasEntries(entries);
+      }
+
+      await tx.category.delete({ where: { id } });
+
+      // RN-18a: confere de novo depois de excluir, caso outra exclusão tenha acontecido ao mesmo tempo.
+      if ((await tx.category.count({ where: { userId, type: category.type } })) === 0) throw lastOfType(category.type);
+    });
+  } catch (error) {
+    // A chave estrangeira (Restrict) recusou a exclusão: entrou um lançamento na categoria nesse meio-tempo.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+      throw hasEntries(await prisma.entry.count({ where: { categoryId: id } }));
     }
-    await tx.category.delete({ where: { id } });
-  });
+    throw error;
+  }
 }

@@ -150,14 +150,20 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 function ThemeSection({ user }: { user: User }) {
   const saveUser = useSaveUser();
   const [error, setError] = useState<string | null>(null);
+  // Marca a opção na hora do clique, junto com o tema aplicado, sem esperar a API.
+  const [selected, setSelected] = useState<Theme>(user.theme);
 
   async function choose(theme: Theme) {
+    if (theme === selected) return;
+    const previous = selected;
     setError(null);
+    setSelected(theme);
     applyTheme(theme);
     try {
       await saveUser('/settings/preferences', { theme });
     } catch (err) {
-      applyTheme(user.theme);
+      setSelected(previous);
+      applyTheme(previous);
       setError(err instanceof Error ? err.message : 'Não foi possível salvar o tema.');
     }
   }
@@ -171,7 +177,7 @@ function ThemeSection({ user }: { user: User }) {
             key={option.value}
             type="button"
             role="radio"
-            aria-checked={user.theme === option.value}
+            aria-checked={selected === option.value}
             className="segmented__option"
             onClick={() => void choose(option.value)}
           >

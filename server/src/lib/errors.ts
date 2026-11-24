@@ -35,6 +35,16 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     });
     return;
   }
+  // Erros do leitor de JSON do Express: corpo malformado (400) ou grande demais (413).
+  // São erros de quem fez a requisição, não do servidor.
+  if (err?.type === 'entity.parse.failed') {
+    res.status(400).json({ error: { code: 'INVALID_JSON', message: 'O corpo da requisição não é um JSON válido.' } });
+    return;
+  }
+  if (err?.type === 'entity.too.large') {
+    res.status(413).json({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'O corpo da requisição é grande demais.' } });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erro inesperado no servidor.' } });
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, formatDate, parseDate, periodContaining, shiftPeriod, today } from '../../../shared/period';
 import type { User } from '../auth/AuthContext';
 import { EntrySheet, type Entry, type EntrySheetMode } from '../components/EntrySheet';
@@ -47,14 +47,22 @@ export function EntriesPage({ user }: { user: User }) {
 
   const period = shiftPeriod(today(), offset, user.monthStartDay, user.periodNaming);
 
+  // Número da última busca: ao trocar de período ou filtro rápido, respostas de buscas
+  // antigas podem chegar depois da atual e são descartadas.
+  const lastRequest = useRef(0);
+
   const load = useCallback(async () => {
+    const request = ++lastRequest.current;
     const params = new URLSearchParams({ start: period.start, end: period.end });
     if (type !== 'ALL') params.set('type', type);
     if (categoryId !== 'ALL') params.set('categoryId', String(categoryId));
     try {
-      setData(await api<{ entries: Entry[]; totals: Totals }>(`/entries?${params}`));
+      const result = await api<{ entries: Entry[]; totals: Totals }>(`/entries?${params}`);
+      if (request !== lastRequest.current) return;
+      setData(result);
       setLoadError(null);
     } catch (err) {
+      if (request !== lastRequest.current) return;
       setLoadError(err instanceof Error ? err.message : 'Erro ao carregar os lançamentos.');
     }
   }, [period.start, period.end, type, categoryId]);
@@ -115,7 +123,34 @@ export function EntriesPage({ user }: { user: User }) {
         </button>
       )}
 
-      {totals && (
+      {totals && type !== 'ALL' && (
+        // Filtrando um tipo só, "resultado" não faz sentido: mostra o realizado, o previsto e o total desse tipo.
+        <section className="card summary" aria-label="Totais do período">
+          {(() => {
+            const kind = type === 'INCOME' ? 'income' : 'expense';
+            const realized = type === 'INCOME' ? totals.incomeRealized : totals.expenseRealized;
+            const planned = type === 'INCOME' ? totals.incomePlanned : totals.expensePlanned;
+            return (
+              <>
+                <div>
+                  <span className="muted small">{type === 'INCOME' ? 'Recebido' : 'Gasto'}</span>
+                  <strong className={`amount amount--${kind}`}>{formatMoney(realized)}</strong>
+                </div>
+                <div>
+                  <span className="muted small">{type === 'INCOME' ? 'A receber' : 'A pagar'}</span>
+                  <strong className="amount">{formatMoney(planned)}</strong>
+                </div>
+                <div>
+                  <span className="muted small">Total</span>
+                  <strong className={`amount amount--${kind}`}>{formatMoney(realized + planned)}</strong>
+                </div>
+              </>
+            );
+          })()}
+        </section>
+      )}
+
+      {totals && type === 'ALL' && (
         <section className="card summary" aria-label="Totais do período">
           <div>
             <span className="muted small">Receitas</span>
