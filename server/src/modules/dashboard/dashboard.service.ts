@@ -1,5 +1,7 @@
 import { addDays, daysBetween, periodContaining, shiftPeriod, today, type PeriodNaming } from '../../../../shared/period.js';
 import { prisma } from '../../lib/prisma.js';
+import { budgetUsage, investmentGoalProgress, LIMITED_CLASSES, savingsGoalProgress } from '../budgets/budgets.core.js';
+import { effectiveBudgets, loadBudgetRows } from '../budgets/budgets.service.js';
 import { EXPENSE_CLASSES } from '../categories/categories.constants.js';
 
 /** Quantos períodos aparecem no gráfico de evolução, contando o escolhido. */
@@ -104,6 +106,40 @@ export async function getDashboard(userId: number, date: string) {
     .filter((c) => c.totalCents > 0 || c.comparison.previousCents > 0)
     .sort((a, b) => b.totalCents - a.totalCents || a.name.localeCompare(b.name, 'pt-BR'));
 
+  // Orçamento e metas em vigor no período (RN-29 a RN-34).
+  const budgets = effectiveBudgets(await loadBudgetRows(userId), period.end);
+  const classTotals = (expenseClass: string) => byClass.find((c) => c.expenseClass === expenseClass)!;
+  const budget = {
+    warningPercent: user.warningPercent,
+    classes: LIMITED_CLASSES.flatMap((expenseClass) => {
+      const limit = budgets.classLimits[expenseClass];
+      if (limit === null) return [];
+      const totals = classTotals(expenseClass);
+      return [{ expenseClass, ...budgetUsage(limit, totals.paidCents, totals.pendingCents, user.warningPercent) }];
+    }),
+    categories: categories
+      .filter((c) => budgets.categoryLimits.has(c.id) && LIMITED_CLASSES.includes(c.expenseClass as (typeof LIMITED_CLASSES)[number]))
+      .map((c) => {
+        const ofCategory = (r: Row) => isExpense(r) && r.categoryId === c.id;
+        const usage = budgetUsage(
+          budgets.categoryLimits.get(c.id)!,
+          sum(inPeriod, (r) => ofCategory(r) && r.paid),
+          sum(inPeriod, (r) => ofCategory(r) && !r.paid),
+          user.warningPercent,
+        );
+        return { categoryId: c.id, name: c.name, color: c.color, expenseClass: c.expenseClass, ...usage };
+      })
+      .sort((a, b) => b.usedPercent - a.usedPercent || a.name.localeCompare(b.name, 'pt-BR')),
+  };
+  const investment = classTotals('INVESTMENT');
+  const goals = {
+    savings: budgets.savingsGoalCents === null ? null : savingsGoalProgress(budgets.savingsGoalCents, result, projected),
+    investment:
+      budgets.investmentGoalCents === null
+        ? null
+        : investmentGoalProgress(budgets.investmentGoalCents, investment.paidCents, investment.pendingCents),
+  };
+
   const expenseComparison = {
     currentCents: sum(inPeriod, (r) => isExpense(r) && r.date <= currentLimit),
     previousCents: sum(rows, (r) => isExpense(r) && r.date >= previous.start && r.date <= previousLimit),
@@ -141,6 +177,8 @@ export async function getDashboard(userId: number, date: string) {
     balance: { initialCents: user.initialBalanceCents, previousCents: previousBalance, currentCents: balance, projectedCents: projectedBalance },
     expenseComparison,
     byClass,
+    budget,
+    goals,
     byCategory,
     evolution,
     overdue: {

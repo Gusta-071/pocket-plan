@@ -13,6 +13,8 @@ export type User = {
   theme: Theme;
   /** RN-44a: ponto de partida do saldo acumulado, em centavos (pode ser negativo). */
   initialBalanceCents: number;
+  /** RN-32a: nível de atenção do orçamento, em % do limite. */
+  warningPercent: number;
 };
 
 type AuthState = {

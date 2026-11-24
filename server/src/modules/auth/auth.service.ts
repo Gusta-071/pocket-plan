@@ -38,6 +38,8 @@ export type PublicUser = {
   theme: Theme;
   /** RN-44a */
   initialBalanceCents: number;
+  /** RN-32a */
+  warningPercent: number;
 };
 
 type UserRow = {
@@ -49,6 +51,7 @@ type UserRow = {
   periodNaming: string;
   theme: string;
   initialBalanceCents: number;
+  warningPercent: number;
 };
 
 export function toPublicUser(user: UserRow): PublicUser {
@@ -61,6 +64,7 @@ export function toPublicUser(user: UserRow): PublicUser {
     periodNaming: user.periodNaming as PeriodNaming,
     theme: user.theme as Theme,
     initialBalanceCents: user.initialBalanceCents,
+    warningPercent: user.warningPercent,
   };
 }
 

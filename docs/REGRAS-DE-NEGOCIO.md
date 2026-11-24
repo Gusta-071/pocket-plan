@@ -85,7 +85,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - **RN-16b — Limite.** Cada usuário pode ter no máximo 30 categorias de cada tipo.
 - **RN-17 — Edição.** O usuário pode criar categorias e alterar o nome, a cor e a classe (RN-14a) de qualquer categoria, inclusive as padrão. O tipo de uma categoria não pode ser alterado depois de criada.
   - Alterar a classe muda os totais por classe de todos os períodos, inclusive os passados, pois eles são recalculados a partir dos lançamentos (como em RN-13).
-  - Ao mudar para Investimento uma categoria que tem orçamento (RN-29), o orçamento é removido, e a confirmação avisa isso.
+  - Ao mudar para Investimento uma categoria que tem orçamento (RN-29), o orçamento é removido, e a confirmação avisa isso. Como os totais por classe, o limite deixa de aparecer também nos períodos passados, e não volta se a categoria retornar para Fixa ou Variável.
 - **RN-18 — Exclusão.** A exclusão exige confirmação do usuário.
   - Se a categoria não tem lançamentos, ela é excluída.
   - Se tem lançamentos, o usuário escolhe outra categoria **do mesmo tipo** para recebê-los. Os lançamentos são movidos e a categoria é excluída em uma única operação: ou tudo acontece, ou nada.
@@ -130,8 +130,8 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 ## Orçamento
 
 - **RN-29 — Orçamento por categoria.** O usuário pode definir um limite mensal (valor > 0) para uma categoria de despesa das classes Fixa ou Variável.
-  - **RN-29a — Orçamento por classe.** *(planejada)* O usuário pode definir também um limite mensal para cada uma das classes **Fixa** e **Variável**, que soma todas as categorias da classe. Os limites das categorias e da classe são independentes. Se a soma dos limites das categorias de uma classe passar do limite da classe, o sistema avisa, mas permite.
-  - **RN-29b — Meta de investimento.** *(planejada)* Para a classe Investimento, o valor não é um teto, e sim uma meta mínima: quanto o usuário quer investir por período. A meta é **atingida** quando as despesas pagas da classe no período chegam ao valor da meta. Durante o período, o sistema mostra quanto falta.
+  - **RN-29a — Orçamento por classe.** O usuário pode definir também um limite mensal para cada uma das classes **Fixa** e **Variável**, que soma todas as categorias da classe. Os limites das categorias e da classe são independentes. Se a soma dos limites das categorias de uma classe passar do limite da classe, o sistema avisa, mas permite.
+  - **RN-29b — Meta de investimento.** Para a classe Investimento, o valor não é um teto, e sim uma meta mínima: quanto o usuário quer investir por período. A meta é **atingida** quando as despesas pagas da classe no período chegam ao valor da meta. Durante o período, o sistema mostra quanto falta.
 - **RN-30 — Vigência.** O limite (ou a meta) passa a valer a partir do período financeiro em que foi definido e se repete nos períodos seguintes até ser alterado ou removido. Alterações valem do período atual em diante; períodos anteriores mantêm o valor que tinham.
 - **RN-31 — Consumo.** Para uma categoria ou classe, no período:
   - consumido = soma das despesas **pagas**;
@@ -145,7 +145,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **RN-33 — Definição.** O usuário pode definir uma meta de economia por período (valor > 0). A vigência segue a mesma regra do orçamento (RN-30).
 - **RN-34 — Avaliação.** A meta é **atingida** quando o resultado realizado do período (RN-26) é maior ou igual à meta. Durante o período, o sistema mostra também se o resultado projetado (RN-27) atinge a meta.
 
-## Painel do período *(em parte: falta o que depende de classes, orçamento e metas)*
+## Painel do período *(em parte: falta o atalho para as Contas do mês)*
 
 - **RN-48 — Painel.** A tela inicial mostra o período atual, com navegação para os anteriores e os seguintes (como na lista de lançamentos):
   - saldo anterior, receitas, gastos fixos, gastos variáveis, investido, resultado realizado e projetado, e saldo acumulado (RN-26 a RN-28a);

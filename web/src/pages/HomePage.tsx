@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatDate, parseDate, shiftPeriod, today, type Period } from '../../../shared/period';
 import type { User } from '../auth/AuthContext';
 import { Assistant } from '../components/Assistant';
+import { BudgetAmountSheet } from '../components/BudgetAmountSheet';
 import { CheckButton } from '../components/CheckButton';
 import { PAID_LABELS, type Entry } from '../components/EntrySheet';
 import { Alert } from '../components/Form';
 import { ManageCategoriesLink } from '../components/ManageCategoriesLink';
 import { PeriodNav } from '../components/PeriodNav';
 import { api } from '../lib/api';
+import { STATUS_LABELS, type BudgetStatus } from '../lib/budgets';
 import { CATEGORY_COLORS, EXPENSE_CLASS_LABELS, type Category, type CategoryColor, type ExpenseClass } from '../lib/categories';
 import { formatMoney } from '../lib/money';
 import { Link } from '../lib/router';
@@ -26,6 +28,15 @@ type Dashboard = {
     pendingCents: number;
     comparison: { currentCents: number; previousCents: number };
   }[];
+  budget: {
+    warningPercent: number;
+    classes: (Usage & { expenseClass: 'FIXED' | 'VARIABLE' })[];
+    categories: (Usage & { categoryId: number; name: string; color: CategoryColor })[];
+  };
+  goals: {
+    savings: Progress | null;
+    investment: (Progress & { investedCents: number; pendingCents: number }) | null;
+  };
   byCategory: {
     categoryId: number;
     name: string;
@@ -38,6 +49,20 @@ type Dashboard = {
   overdue: { count: number; incomeCents: number; expenseCents: number; entries: Entry[] };
   upcoming: Entry[];
 };
+
+type Usage = {
+  limitCents: number;
+  consumedCents: number;
+  committedCents: number;
+  availableCents: number;
+  usedPercent: number;
+  status: BudgetStatus;
+};
+
+type Progress = { goalCents: number; remainingCents: number; achieved: boolean; projectedAchieved: boolean } & Partial<{
+  resultCents: number;
+  projectedCents: number;
+}>;
 
 const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
@@ -108,6 +133,8 @@ export function HomePage({ user }: { user: User }) {
               {data.overdue.count > 0 && <OverdueAlert overdue={data.overdue} />}
             </div>
             <div className="dashboard__area dashboard__area--categories">
+              <Goals data={data} onChanged={() => void load()} />
+              <Budget data={data} />
               <SpendingByCategory data={data} />
             </div>
             <div className="dashboard__area dashboard__area--side">
@@ -185,6 +212,182 @@ function ClassTotals({ data }: { data: Dashboard }) {
           </span>
         </div>
       ))}
+    </section>
+  );
+}
+
+/** Metas de economia e de investimento (RN-29b, RN-33, RN-34), editadas aqui mesmo (RN-47a). */
+function Goals({ data, onChanged }: { data: Dashboard; onChanged: () => void }) {
+  const [editing, setEditing] = useState<'SAVINGS_GOAL' | 'INVESTMENT_GOAL' | null>(null);
+  const { savings, investment } = data.goals;
+  const isCurrent = data.period.isCurrent;
+
+  return (
+    <section className="dashboard__section">
+      <div className="section-header">
+        <h2>Metas</h2>
+        {!isCurrent && <span className="small muted">Edição só no período atual</span>}
+      </div>
+      <div className="goals">
+        <GoalCard
+          title="Economia"
+          empty="Quanto você quer que sobre no fim do mês?"
+          canEdit={isCurrent}
+          onEdit={() => setEditing('SAVINGS_GOAL')}
+          goal={
+            savings && {
+              goalCents: savings.goalCents,
+              valueCents: savings.resultCents ?? 0,
+              achieved: savings.achieved,
+              detail: savings.achieved
+                ? 'Meta atingida com o resultado do mês.'
+                : savings.projectedAchieved
+                  ? `Com os pendentes, o mês fecha em ${formatMoney(savings.projectedCents ?? 0)} e atinge a meta.`
+                  : `Faltam ${formatMoney(savings.remainingCents)}. Com os pendentes, fecha em ${formatMoney(savings.projectedCents ?? 0)}.`,
+            }
+          }
+        />
+        <GoalCard
+          title="Investimento"
+          empty="Quanto você quer investir por mês?"
+          canEdit={isCurrent}
+          onEdit={() => setEditing('INVESTMENT_GOAL')}
+          goal={
+            investment && {
+              goalCents: investment.goalCents,
+              valueCents: investment.investedCents,
+              achieved: investment.achieved,
+              detail: investment.achieved
+                ? 'Meta atingida.'
+                : `Faltam ${formatMoney(investment.remainingCents)}${investment.pendingCents > 0 ? ` (${formatMoney(investment.pendingCents)} em aportes pendentes)` : ''}.`,
+            }
+          }
+        />
+      </div>
+      {editing && (
+        <BudgetAmountSheet
+          title={editing === 'SAVINGS_GOAL' ? 'Meta de economia' : 'Meta de investimento'}
+          label={editing === 'SAVINGS_GOAL' ? 'Economizar por mês' : 'Investir por mês'}
+          description={
+            editing === 'SAVINGS_GOAL'
+              ? 'A meta é atingida quando o resultado do mês (recebido − pago) chega a este valor.'
+              : 'A meta é atingida quando os aportes pagos em categorias de investimento chegam a este valor.'
+          }
+          target={{ kind: editing }}
+          currentCents={(editing === 'SAVINGS_GOAL' ? savings : investment)?.goalCents ?? null}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            onChanged();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function GoalCard({
+  title,
+  empty,
+  goal,
+  canEdit,
+  onEdit,
+}: {
+  title: string;
+  empty: string;
+  goal: { goalCents: number; valueCents: number; achieved: boolean; detail: string } | null;
+  canEdit: boolean;
+  onEdit: () => void;
+}) {
+  const percent = goal ? Math.max(0, Math.min(100, Math.round((goal.valueCents / goal.goalCents) * 100))) : 0;
+  return (
+    <div className="card goal">
+      <div className="goal__header">
+        <span className="goal__title">{title}</span>
+        {canEdit && (
+          <button type="button" className="link-button small" onClick={onEdit}>
+            {goal ? 'Editar' : 'Definir meta'}
+          </button>
+        )}
+      </div>
+      {goal ? (
+        <>
+          <span className="goal__value">
+            <strong className={goal.valueCents < 0 ? 'amount--expense' : ''}>{formatMoney(goal.valueCents)}</strong>
+            <span className="muted small"> de {formatMoney(goal.goalCents)}</span>
+          </span>
+          <span className="meter" role="img" aria-label={`${percent}% da meta`}>
+            <span className={`meter__fill ${goal.achieved ? 'meter__fill--done' : ''}`} style={{ width: `${percent}%` }} />
+          </span>
+          <span className="small muted">
+            {goal.achieved && <span className="badge badge--success">Atingida</span>} {goal.detail}
+          </span>
+        </>
+      ) : (
+        <span className="small muted">{empty}</span>
+      )}
+    </div>
+  );
+}
+
+/** Limites por classe e por categoria (RN-29 a RN-32): consumido, comprometido, disponível e alerta. */
+function Budget({ data }: { data: Dashboard }) {
+  const { classes, categories, warningPercent } = data.budget;
+  const rows = [
+    ...classes.map((c) => ({ key: `class-${c.expenseClass}`, name: `Despesas ${c.expenseClass === 'FIXED' ? 'fixas' : 'variáveis'}`, color: null, isClass: true, ...c })),
+    ...categories.map((c) => ({ ...c, key: `category-${c.categoryId}`, isClass: false })),
+  ];
+
+  return (
+    <section className="dashboard__section">
+      <div className="section-header">
+        <h2 className="section-header__title">
+          Orçamento <ManageCategoriesLink />
+        </h2>
+        <span className="small muted">Atenção a partir de {warningPercent}%</span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="card muted small dashboard__empty">
+          Nenhum limite definido. Defina limites por categoria ou por classe em Ajustes → Categorias.
+        </p>
+      ) : (
+        <div className="card">
+          <ul className="budget">
+            {rows.map((row) => {
+              const consumed = Math.min(100, (row.consumedCents / row.limitCents) * 100);
+              const committed = Math.min(100 - consumed, (row.committedCents / row.limitCents) * 100);
+              return (
+                <li key={row.key} className={`budget__row budget__row--${row.status.toLowerCase()}`}>
+                  <span className={`budget__name ${row.isClass ? 'budget__name--class' : ''}`}>
+                    {row.color && <span className="color-dot" style={{ background: CATEGORY_COLORS[row.color].hex }} aria-hidden="true" />}
+                    {row.name}
+                    {row.status !== 'OK' && (
+                      <span className={`badge ${row.status === 'EXCEEDED' ? 'badge--danger' : 'badge--warning'}`}>{STATUS_LABELS[row.status]}</span>
+                    )}
+                  </span>
+                  <span className="budget__value small">
+                    {row.usedPercent}% de {formatMoney(row.limitCents)}
+                  </span>
+                  <span className="budget__track" aria-hidden="true">
+                    <span className="budget__consumed" style={{ width: `${consumed}%` }} />
+                    <span className="budget__committed" style={{ width: `${committed}%` }} />
+                    <span className="budget__marker" style={{ left: `${warningPercent}%` }} />
+                  </span>
+                  <span className="budget__detail small muted">
+                    Pago {formatMoney(row.consumedCents)}
+                    {row.committedCents > 0 && ` · pendente ${formatMoney(row.committedCents)}`} ·{' '}
+                    {row.availableCents >= 0 ? (
+                      `disponível ${formatMoney(row.availableCents)}`
+                    ) : (
+                      <span className="amount--expense">passou {formatMoney(-row.availableCents)}</span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { Prisma } from '../../generated/prisma/client.js';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { removeCategoryLimit } from '../budgets/budgets.service.js';
 import {
   categoryNameKey,
   MAX_CATEGORIES_PER_TYPE,
@@ -101,6 +102,8 @@ export async function updateCategory(userId: number, id: number, input: z.infer<
         ...(input.expenseClass !== undefined && { expenseClass: input.expenseClass }),
       },
     });
+    // RN-17: investimento não tem limite, só meta (RN-29b).
+    if (input.expenseClass === 'INVESTMENT' && current.expenseClass !== 'INVESTMENT') await removeCategoryLimit(userId, id);
     return toPublic(category);
   } catch (error) {
     if (isUniqueViolation(error)) throw nameInUse();

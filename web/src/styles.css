@@ -15,6 +15,8 @@
   --color-danger: #b91c1c;
   --color-danger-hover: #991b1b;
   --color-danger-bg: #fee2e2;
+  --color-warning: #a16207;
+  --color-warning-bg: #fef3c7;
   --color-income: #15803d;
   --color-expense: #b91c1c;
   --color-weak: #c2410c;
@@ -51,6 +53,8 @@
   --color-danger: #f87171;
   --color-danger-hover: #fca5a5;
   --color-danger-bg: #3a1616;
+  --color-warning: #fbbf24;
+  --color-warning-bg: #3a2a0a;
   --color-income: #4ade80;
   --color-expense: #f87171;
   --color-weak: #fb923c;
@@ -164,6 +168,7 @@ a { color: var(--color-primary); font-weight: 600; }
 .alert { padding: 10px 12px; border-radius: 10px; font-size: 0.9rem; }
 .alert--error { background: var(--color-danger-bg); color: var(--color-danger); }
 .alert--success { background: var(--color-success-bg); color: var(--color-success); }
+.alert--warning { background: var(--color-warning-bg); color: var(--color-warning); }
 
 /* Área logada */
 .topbar {
@@ -747,4 +752,37 @@ a { color: var(--color-primary); font-weight: 600; }
 @media (max-width: 640px) {
   .class-totals { grid-template-columns: 1fr; gap: 10px; }
   .class-picker__options { grid-template-columns: 1fr; }
+}
+
+/* Metas (RN-29b, RN-34) e orçamento (RN-29 a RN-32) no painel. */
+.badge--warning { background: var(--color-warning-bg); color: var(--color-warning); }
+.badge--success { background: var(--color-success-bg); color: var(--color-success); }
+.goals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.goal { display: grid; gap: 6px; padding: 14px 16px; align-content: start; }
+.goal__header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.goal__title { font-weight: 600; }
+.goal__value strong { font-size: 1.15rem; }
+.meter { display: block; height: 8px; border-radius: 999px; background: var(--color-track); overflow: hidden; }
+.meter__fill { display: block; height: 100%; background: var(--color-primary); border-radius: inherit; }
+.meter__fill--done { background: var(--color-success); }
+.budget { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.budget__row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+.budget__name { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; min-width: 0; flex-wrap: wrap; }
+.budget__name--class { font-weight: 700; }
+.budget__value { color: var(--color-muted); white-space: nowrap; }
+.budget__track { grid-column: 1 / -1; position: relative; display: flex; height: 10px; border-radius: 999px; background: var(--color-track); overflow: hidden; }
+.budget__consumed { background: var(--color-primary); }
+.budget__committed { background: var(--color-primary); opacity: 0.4; }
+.budget__row--warning .budget__consumed, .budget__row--warning .budget__committed { background: var(--color-warning); }
+.budget__row--exceeded .budget__consumed, .budget__row--exceeded .budget__committed { background: var(--color-danger); }
+.budget__marker { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--color-text); opacity: 0.35; }
+.budget__detail { grid-column: 1 / -1; }
+.class-group__header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 16px 0 6px; }
+.class-group__header .class-group__title { margin: 0; }
+section:first-of-type > .class-group__header { margin-top: 0; }
+.form__group { display: grid; gap: 4px; }
+.form__group > p { margin: 0; }
+
+@media (max-width: 640px) {
+  .goals { grid-template-columns: 1fr; }
 }
