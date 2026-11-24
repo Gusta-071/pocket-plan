@@ -16,3 +16,17 @@ export function ManageCategoriesLink() {
     </Link>
   );
 }
+
+export const PAYMENTS_PATH = '/configuracoes/pagamentos';
+
+/** Atalho para as formas de pagamento e os cartões, que ficam nos ajustes (RN-47a, RN-51, RN-69). */
+export function ManagePaymentsLink() {
+  return (
+    <Link href={PAYMENTS_PATH} className="icon-link" title="Gerenciar formas de pagamento e cartões" aria-label="Gerenciar formas de pagamento e cartões">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10h20M6 15h4" />
+      </svg>
+    </Link>
+  );
+}

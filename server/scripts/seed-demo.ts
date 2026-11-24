@@ -12,6 +12,7 @@ import { lastDayOfMonth, maxEntryDate, parseDate, toDateString, today } from '..
 import { hashPassword } from '../src/lib/crypto.js';
 import { prisma } from '../src/lib/prisma.js';
 import { categoryNameKey, DEFAULT_CATEGORIES } from '../src/modules/categories/categories.constants.js';
+import { defaultPaymentMethodsData } from '../src/modules/payment-methods/payment-methods.constants.js';
 
 const EMAIL = 'demo@pocket-plan.local';
 const PASSWORD = 'demo1234';
@@ -28,6 +29,42 @@ const between = (min: number, max: number) => Math.round(min + random() * (max -
 const pick = <T>(items: T[]): T => items[Math.floor(random() * items.length)]!;
 
 type Draft = { category: string; type: 'INCOME' | 'EXPENSE'; reais: number; day: number; description: string };
+
+type Payment = { method: 'PIX' | 'DEBIT' | 'CREDIT' | 'CASH' | 'BOLETO' | 'VR'; card?: 'main' | 'store' };
+
+/** Como cada gasto da demonstração foi pago (RN-67, RN-52). */
+function paymentOf(description: string): Payment {
+  switch (description) {
+    case 'Aluguel':
+    case 'Condomínio':
+    case 'Mensalidade da faculdade':
+      return { method: 'BOLETO' };
+    case 'Conta de luz':
+    case 'Internet':
+    case 'Celular':
+    case 'Combustível':
+      return { method: 'DEBIT' };
+    case 'Netflix':
+    case 'Spotify':
+    case 'Academia':
+    case 'Uber':
+      return { method: 'CREDIT', card: 'main' };
+    case 'Mercado':
+      return pick<Payment>([{ method: 'CREDIT', card: 'main' }, { method: 'DEBIT' }]);
+    case 'Almoço no trabalho':
+    case 'Padaria':
+      return { method: 'VR' };
+    case 'Farmácia':
+      return { method: 'CASH' };
+    case 'Roupas':
+    case 'Casa e decoração':
+    case 'Eletrônicos':
+    case 'Presente':
+      return { method: 'CREDIT', card: 'store' };
+    default:
+      return { method: 'PIX' };
+  }
+}
 
 /** Lançamentos de um mês. `offset` 0 é o mês atual. */
 function monthEntries(offset: number): Draft[] {
@@ -79,6 +116,8 @@ async function main() {
   const existing = await prisma.user.findUnique({ where: { email: EMAIL } });
   if (existing) {
     await prisma.entry.deleteMany({ where: { userId: existing.id } });
+    await prisma.card.deleteMany({ where: { userId: existing.id } });
+    await prisma.paymentMethod.deleteMany({ where: { userId: existing.id } });
     await prisma.user.delete({ where: { id: existing.id } });
   }
 
@@ -90,9 +129,22 @@ async function main() {
       emailVerifiedAt: new Date(),
       initialBalanceCents: 250000, // R$ 2.500,00 na conta quando começou a usar (RN-44a)
       categories: { create: DEFAULT_CATEGORIES.map((c) => ({ ...c, nameKey: categoryNameKey(c.name) })) },
+      paymentMethods: {
+        create: [...defaultPaymentMethodsData(), { kind: 'CUSTOM', name: 'Vale-refeição', nameKey: 'vale-refeição' }],
+      },
+      cards: {
+        create: [
+          { name: 'Cartão principal', nameKey: 'cartão principal', color: 'purple', limitCents: 600000, closingDay: 25, dueDay: 2 },
+          { name: 'Cartão da loja', nameKey: 'cartão da loja', color: 'amber', limitCents: 150000, closingDay: 10, dueDay: 17 },
+        ],
+      },
     },
-    include: { categories: true },
+    include: { categories: true, paymentMethods: true, cards: true },
   });
+  const methodId = (method: Payment['method']) =>
+    user.paymentMethods.find((m) => (method === 'VR' ? m.kind === 'CUSTOM' : m.kind === method))!.id;
+  const cardId = (card: Payment['card']) =>
+    card ? user.cards.find((c) => c.name === (card === 'main' ? 'Cartão principal' : 'Cartão da loja'))!.id : null;
   const categoryId = (type: string, name: string) => user.categories.find((c) => c.type === type && c.name === name)!.id;
 
   const rows = [];
@@ -108,6 +160,9 @@ async function main() {
         date,
         categoryId: categoryId(draft.type, draft.category),
         description: draft.description,
+        ...(draft.type === 'EXPENSE'
+          ? (({ method, card }) => ({ paymentMethodId: methodId(method), cardId: cardId(card) }))(paymentOf(draft.description))
+          : { paymentMethodId: null, cardId: null }),
         // RN-22: o que já passou está pago; o futuro, pendente. As exceções abaixo criam atrasados.
         paid: date <= todayValue,
       });

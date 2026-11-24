@@ -16,6 +16,10 @@ export type PublicEntry = {
   paid: boolean;
   /** RN-22a: pendente com data anterior a hoje. Calculado, nunca armazenado. */
   overdue: boolean;
+  /** RN-67: só nas despesas. */
+  paymentMethodId: number | null;
+  /** RN-52: só nas compras no crédito. */
+  cardId: number | null;
 };
 
 type EntryRow = {
@@ -26,6 +30,8 @@ type EntryRow = {
   categoryId: number;
   description: string | null;
   paid: boolean;
+  paymentMethodId: number | null;
+  cardId: number | null;
 };
 
 /** RN-22: sugestão de situação pela data. Até hoje, pago/recebido; futura, pendente. */
@@ -43,6 +49,8 @@ function toPublic(entry: EntryRow, todayValue: string): PublicEntry {
     description: entry.description,
     paid: entry.paid,
     overdue: !entry.paid && entry.date < todayValue,
+    paymentMethodId: entry.paymentMethodId,
+    cardId: entry.cardId,
   };
 }
 
@@ -58,6 +66,45 @@ async function checkCategory(userId: number, input: EntryInput) {
     const message = `Escolha uma categoria de ${input.type === 'INCOME' ? 'receita' : 'despesa'}.`;
     throw new AppError(400, 'CATEGORY_TYPE_MISMATCH', message, [{ path: 'categoryId', message }]);
   }
+}
+
+const fieldError = (code: string, path: string, message: string) => new AppError(400, code, message, [{ path, message }]);
+
+/**
+ * RN-67 a RN-70, RN-52: confere a forma de pagamento e o cartão e devolve os valores a gravar.
+ * `current` é o lançamento sendo editado: ele pode manter a "Não informada" (RN-70)
+ * e um cartão que foi arquivado depois da compra (RN-57).
+ */
+async function checkPayment(
+  userId: number,
+  input: EntryInput,
+  current?: { paymentMethodId: number | null; cardId: number | null },
+): Promise<{ paymentMethodId: number | null; cardId: number | null }> {
+  if (input.type === 'INCOME') {
+    if (input.paymentMethodId) throw fieldError('INCOME_WITHOUT_PAYMENT_METHOD', 'paymentMethodId', 'Receitas não têm forma de pagamento.');
+    if (input.cardId) throw fieldError('INCOME_WITHOUT_CARD', 'cardId', 'Receitas não podem ter cartão.');
+    return { paymentMethodId: null, cardId: null };
+  }
+
+  if (!input.paymentMethodId) throw fieldError('PAYMENT_METHOD_REQUIRED', 'paymentMethodId', 'Escolha a forma de pagamento.');
+  const method = await prisma.paymentMethod.findFirst({ where: { id: input.paymentMethodId, userId } });
+  if (!method) throw fieldError('INVALID_PAYMENT_METHOD', 'paymentMethodId', 'Escolha uma das suas formas de pagamento.');
+  if (method.kind === 'UNSPECIFIED' && current?.paymentMethodId !== method.id) {
+    throw fieldError('PAYMENT_METHOD_REQUIRED', 'paymentMethodId', 'Escolha a forma de pagamento.');
+  }
+
+  if (method.kind !== 'CREDIT') {
+    if (input.cardId) throw fieldError('CARD_ONLY_ON_CREDIT', 'cardId', 'Só compras no crédito têm cartão.');
+    return { paymentMethodId: method.id, cardId: null };
+  }
+
+  if (!input.cardId) throw fieldError('CARD_REQUIRED', 'cardId', 'Escolha o cartão usado na compra.');
+  const card = await prisma.card.findFirst({ where: { id: input.cardId, userId } });
+  if (!card) throw fieldError('INVALID_CARD', 'cardId', 'Escolha um dos seus cartões.');
+  if (card.archivedAt && current?.cardId !== card.id) {
+    throw fieldError('CARD_ARCHIVED', 'cardId', 'Este cartão está arquivado. Reative-o nos ajustes para usá-lo em compras novas.');
+  }
+  return { paymentMethodId: method.id, cardId: card.id };
 }
 
 /** Lançamento do usuário; de outro usuário responde como inexistente (RN-04). */
@@ -79,6 +126,8 @@ export async function listEntries(userId: number, query: z.infer<typeof listEntr
       date: { gte: query.start, lte: query.end },
       ...(query.type && { type: query.type }),
       ...(query.categoryId && { categoryId: query.categoryId }),
+      ...(query.paymentMethodId && { paymentMethodId: query.paymentMethodId }),
+      ...(query.cardId && { cardId: query.cardId }),
     },
     orderBy: [{ date: 'desc' }, { id: 'desc' }],
   });
@@ -100,15 +149,17 @@ export async function listEntries(userId: number, query: z.infer<typeof listEntr
 /** RN-19 a RN-23. Duplicar (RN-25a) também usa esta rota, com os dados ajustados. */
 export async function createEntry(userId: number, input: EntryInput): Promise<PublicEntry> {
   await checkCategory(userId, input);
+  const payment = await checkPayment(userId, input);
   const paid = input.paid ?? suggestedPaid(input.date);
-  return toPublic(await prisma.entry.create({ data: { ...input, paid, userId } }), today());
+  return toPublic(await prisma.entry.create({ data: { ...input, ...payment, paid, userId } }), today());
 }
 
 /** RN-24: todos os campos podem ser editados, com as validações da criação. Mudar a data não muda a situação. */
 export async function updateEntry(userId: number, id: number, input: EntryInput): Promise<PublicEntry> {
-  await findOwned(userId, id);
+  const current = await findOwned(userId, id);
   await checkCategory(userId, input);
-  return toPublic(await prisma.entry.update({ where: { id }, data: input }), today());
+  const payment = await checkPayment(userId, input, current);
+  return toPublic(await prisma.entry.update({ where: { id }, data: { ...input, ...payment } }), today());
 }
 
 /** RN-22b: marca ou desmarca como pago/recebido. */
@@ -149,6 +200,9 @@ export async function repeatEntry(userId: number, id: number, times: number): Pr
     amountCents: original.amountCents,
     categoryId: original.categoryId,
     description: original.description,
+    // RN-25b: as cópias mantêm a forma de pagamento e o cartão, como estão.
+    paymentMethodId: original.paymentMethodId,
+    cardId: original.cardId,
     date,
     paid: suggestedPaid(date, todayValue),
   }));

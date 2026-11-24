@@ -35,6 +35,10 @@ const entryFields = {
   // RN-22: pago/recebido. Opcional: na criação, sem o campo, vale a sugestão pela data;
   // na edição, sem o campo, a situação atual é mantida (RN-24).
   paid: z.boolean({ error: 'Situação inválida.' }).optional(),
+  // RN-67, RN-52: forma de pagamento (só despesas) e cartão (só no crédito). A coerência com o tipo
+  // e com a forma é conferida no serviço, que conhece as formas e os cartões do usuário.
+  paymentMethodId: z.number({ error: 'Escolha a forma de pagamento.' }).int().positive().nullish(),
+  cardId: z.number({ error: 'Escolha o cartão.' }).int().positive().nullish(),
 };
 
 export const entrySchema = z.object(entryFields);
@@ -50,6 +54,9 @@ export const listEntriesQuerySchema = z
     end: dateSchema,
     type: z.enum(CATEGORY_TYPES).optional(),
     categoryId: z.coerce.number().int().positive().optional(),
+    // RN-71
+    paymentMethodId: z.coerce.number().int().positive().optional(),
+    cardId: z.coerce.number().int().positive().optional(),
   })
   .refine((query) => query.start <= query.end, { error: 'O início deve ser antes do fim.' });
 

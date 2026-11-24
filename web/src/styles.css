@@ -786,3 +786,9 @@ section:first-of-type > .class-group__header { margin-top: 0; }
 @media (max-width: 640px) {
   .goals { grid-template-columns: 1fr; }
 }
+
+/* Formas de pagamento e cartões (RN-51, RN-67 a RN-71). */
+.list__item--static { cursor: default; }
+.form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.color-dot--small { width: 8px; height: 8px; display: inline-block; vertical-align: middle; }
+.proposal__select { font: inherit; font-size: 0.85rem; padding: 2px 4px; max-width: 100%; }

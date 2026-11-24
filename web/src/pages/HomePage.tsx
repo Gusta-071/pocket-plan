@@ -6,7 +6,7 @@ import { BudgetAmountSheet } from '../components/BudgetAmountSheet';
 import { CheckButton } from '../components/CheckButton';
 import { PAID_LABELS, type Entry } from '../components/EntrySheet';
 import { Alert } from '../components/Form';
-import { ManageCategoriesLink } from '../components/ManageCategoriesLink';
+import { ManageCategoriesLink, ManagePaymentsLink } from '../components/ManageCategoriesLink';
 import { PeriodNav } from '../components/PeriodNav';
 import { api } from '../lib/api';
 import { STATUS_LABELS, type BudgetStatus } from '../lib/budgets';
@@ -37,6 +37,13 @@ type Dashboard = {
     savings: Progress | null;
     investment: (Progress & { investedCents: number; pendingCents: number }) | null;
   };
+  byPaymentMethod: {
+    paymentMethodId: number;
+    kind: string;
+    name: string;
+    totalCents: number;
+    cards: { cardId: number; name: string; color: CategoryColor; totalCents: number }[];
+  }[];
   byCategory: {
     categoryId: number;
     name: string;
@@ -136,6 +143,7 @@ export function HomePage({ user }: { user: User }) {
               <Goals data={data} onChanged={() => void load()} />
               <Budget data={data} />
               <SpendingByCategory data={data} />
+              <SpendingByPayment data={data} />
             </div>
             <div className="dashboard__area dashboard__area--side">
               {data.period.isCurrent && (
@@ -519,6 +527,49 @@ function SpendingByCategory({ data }: { data: Dashboard }) {
             ))}
           </ul>
           <p className="small muted bars__footnote">{basis} Inclui o que já foi pago e o que está pendente.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** RN-71: quanto saiu por cada forma de pagamento; no crédito, separado por cartão. */
+function SpendingByPayment({ data }: { data: Dashboard }) {
+  const rows = data.byPaymentMethod;
+  const max = Math.max(...rows.map((r) => r.totalCents), 1);
+  return (
+    <section className="dashboard__section">
+      <div className="section-header">
+        <h2 className="section-header__title">
+          Gastos por forma de pagamento <ManagePaymentsLink />
+        </h2>
+      </div>
+      {rows.length === 0 ? (
+        <p className="card muted small dashboard__empty">Nenhuma despesa neste período.</p>
+      ) : (
+        <div className="card">
+          <ul className="bars">
+            {rows.map((row) => (
+              <li key={row.paymentMethodId} className="bars__row">
+                <span className="bars__name">{row.name}</span>
+                <span className="bars__value">{formatMoney(row.totalCents)}</span>
+                <span className="bars__track" aria-hidden="true">
+                  <span className="bars__fill" style={{ width: `${(row.totalCents / max) * 100}%` }} />
+                </span>
+                {row.cards.length > 0 && (
+                  <span className="bars__note small muted">
+                    {row.cards.map((card, i) => (
+                      <span key={card.cardId}>
+                        {i > 0 && ' · '}
+                        <span className="color-dot color-dot--small" style={{ background: CATEGORY_COLORS[card.color].hex }} aria-hidden="true" />{' '}
+                        {card.name}: {formatMoney(card.totalCents)}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </section>

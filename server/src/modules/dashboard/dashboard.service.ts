@@ -9,7 +9,17 @@ export const HISTORY_LENGTH = 6;
 /** Contas pendentes que vencem nos próximos dias aparecem em "Próximas contas". */
 export const UPCOMING_DAYS = 7;
 
-type Row = { id: number; type: string; amountCents: number; date: string; categoryId: number; description: string | null; paid: boolean };
+type Row = {
+  id: number;
+  type: string;
+  amountCents: number;
+  date: string;
+  categoryId: number;
+  description: string | null;
+  paid: boolean;
+  paymentMethodId: number | null;
+  cardId: number | null;
+};
 
 const sum = (rows: Row[], filter: (row: Row) => boolean) => rows.reduce((total, row) => (filter(row) ? total + row.amountCents : total), 0);
 
@@ -140,6 +150,31 @@ export async function getDashboard(userId: number, date: string) {
         : investmentGoalProgress(budgets.investmentGoalCents, investment.paidCents, investment.pendingCents),
   };
 
+  // RN-71: gastos por forma de pagamento; no crédito, separados por cartão.
+  const [methods, cards] = await Promise.all([
+    prisma.paymentMethod.findMany({ where: { userId } }),
+    prisma.card.findMany({ where: { userId } }),
+  ]);
+  const byPaymentMethod = methods
+    .map((method) => {
+      const ofMethod = (r: Row) => isExpense(r) && r.paymentMethodId === method.id;
+      return {
+        paymentMethodId: method.id,
+        kind: method.kind,
+        name: method.name,
+        totalCents: sum(inPeriod, ofMethod),
+        cards:
+          method.kind === 'CREDIT'
+            ? cards
+                .map((card) => ({ cardId: card.id, name: card.name, color: card.color, totalCents: sum(inPeriod, (r) => ofMethod(r) && r.cardId === card.id) }))
+                .filter((c) => c.totalCents > 0)
+                .sort((a, b) => b.totalCents - a.totalCents)
+            : [],
+      };
+    })
+    .filter((m) => m.totalCents > 0)
+    .sort((a, b) => b.totalCents - a.totalCents || a.name.localeCompare(b.name, 'pt-BR'));
+
   const expenseComparison = {
     currentCents: sum(inPeriod, (r) => isExpense(r) && r.date <= currentLimit),
     previousCents: sum(rows, (r) => isExpense(r) && r.date >= previous.start && r.date <= previousLimit),
@@ -168,6 +203,8 @@ export async function getDashboard(userId: number, date: string) {
     description: r.description,
     paid: r.paid,
     overdue: !r.paid && r.date < todayValue,
+    paymentMethodId: r.paymentMethodId,
+    cardId: r.cardId,
   });
 
   return {
@@ -177,6 +214,7 @@ export async function getDashboard(userId: number, date: string) {
     balance: { initialCents: user.initialBalanceCents, previousCents: previousBalance, currentCents: balance, projectedCents: projectedBalance },
     expenseComparison,
     byClass,
+    byPaymentMethod,
     budget,
     goals,
     byCategory,

@@ -15,6 +15,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **Orçamento por classe e meta de investimento (RN-29a, RN-29b), com nível de atenção configurável (RN-32a).**
 - **Categorias e nível de atenção nos ajustes; metas no painel (RN-47a).**
 - **Novas seções:** Painel do período (RN-48, RN-49; implementado em parte), Contas do mês (RN-50), Cartões de crédito (RN-51 a RN-57) e Despesas compartilhadas (RN-58 a RN-65).
+- **Formas de pagamento (RN-67 a RN-71) e cadastro de cartões (RN-51, RN-52, RN-57).**
 - **Assistente com IA (RN-66, implementado).** Lançar receitas e despesas conversando, sempre com confirmação.
 - **Ajustes ligados a essas seções:** RN-04, RN-09, RN-17, RN-18, RN-24, RN-25a, RN-25b, RN-26, RN-27, RN-31 e RN-47.
 
@@ -95,7 +96,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 
 ## Lançamentos (receitas e despesas)
 
-- **RN-19 — Campos.** Um lançamento tem tipo (receita ou despesa), valor, data, categoria, situação (RN-22) e descrição opcional (até 120 caracteres). Despesas podem indicar também um cartão de crédito (RN-52).
+- **RN-19 — Campos.** Um lançamento tem tipo (receita ou despesa), valor, data, categoria, situação (RN-22) e descrição opcional (até 120 caracteres). Despesas têm também a forma de pagamento (RN-67) e, quando pagas no crédito, o cartão (RN-52).
 - **RN-20 — Valor.** Maior que zero e no máximo R$ 10.000.000,00 por lançamento.
 - **RN-21 — Categoria compatível.** A categoria é obrigatória, deve pertencer ao usuário e ser do mesmo tipo do lançamento.
 - **RN-22 — Situação: pendente ou pago.** A situação de um lançamento é marcada pelo usuário com um check:
@@ -111,9 +112,19 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **RN-24 — Edição.** Todos os campos de um lançamento podem ser editados, inclusive a situação, com as mesmas validações da criação. Alterar a data não muda a situação.
 - **RN-25 — Exclusão.** A exclusão é definitiva e exige confirmação do usuário.
 - **RN-25a — Duplicar.** O usuário pode duplicar um lançamento: o formulário abre preenchido com os dados do original, para ajuste antes de salvar. A situação é sugerida pela data, como na criação (RN-22). A cópia segue as mesmas validações da criação.
-- **RN-25b — Repetir mensalmente.** O usuário pode repetir um lançamento nos meses seguintes, de 1 a 12 vezes. Cada cópia mantém tipo, valor, categoria, cartão e descrição, com a data no mesmo dia dos meses seguintes. Se o dia não existir no mês de destino (ex.: 31 em abril, 29 a 31 em fevereiro), usa-se o último dia desse mês. Cada cópia recebe a situação sugerida pela sua data (RN-22): as de data futura nascem pendentes.
+- **RN-25b — Repetir mensalmente.** O usuário pode repetir um lançamento nos meses seguintes, de 1 a 12 vezes. Cada cópia mantém tipo, valor, categoria, forma de pagamento, cartão e descrição, com a data no mesmo dia dos meses seguintes. Se o dia não existir no mês de destino (ex.: 31 em abril, 29 a 31 em fevereiro), usa-se o último dia desse mês. Cada cópia recebe a situação sugerida pela sua data (RN-22): as de data futura nascem pendentes.
 - **RN-25c — Cópias independentes.** Lançamentos duplicados ou repetidos são independentes do original: editar ou excluir um deles não afeta os demais.
 - **RN-25d — Repetição atômica.** Se alguma cópia violar uma regra (por exemplo, ultrapassar o limite de RN-23), nenhuma cópia é criada, e o usuário é informado de quantas repetições são possíveis.
+
+## Formas de pagamento
+
+- **RN-67 — Forma de pagamento.** Toda despesa tem uma forma de pagamento, obrigatória, que diz como o dinheiro saiu. Receitas não têm forma de pagamento.
+- **RN-68 — Formas padrão.** Toda conta tem as formas **Pix**, **Débito**, **Crédito**, **Dinheiro** e **Boleto**. Elas não podem ser renomeadas nem excluídas, porque o app depende delas (ex.: Crédito exige um cartão, RN-52).
+- **RN-69 — Formas personalizadas.** O usuário pode criar outras formas (ex.: "Vale-refeição", "Transferência"), com nome de 1 a 30 caracteres, único entre todas as formas da conta, inclusive as padrão, sem diferenciar maiúsculas, minúsculas e espaços nas extremidades. Cada usuário pode ter até 10 formas personalizadas. Elas podem ser renomeadas e excluídas:
+  - sem lançamentos, a forma é excluída;
+  - com lançamentos, o usuário escolhe outra forma para recebê-los, menos Crédito, que exigiria um cartão. Os lançamentos são movidos e a forma é excluída numa única operação (como em RN-18).
+- **RN-70 — Forma não informada.** As despesas registradas antes da RN-67 ficam com a forma **"Não informada"**. Ela não pode ser escolhida em despesas novas nem ao duplicar (RN-25a), mas é mantida ao editar outros campos de uma despesa antiga e ao repeti-la (RN-25b). O usuário pode trocá-la por uma forma de verdade a qualquer momento.
+- **RN-71 — Onde aparece.** A lista de lançamentos pode ser filtrada por forma de pagamento e por cartão, e o painel mostra quanto foi gasto em cada forma no período (RN-48).
 
 ## Resultado do período
 
@@ -152,6 +163,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - meta de economia (RN-34) e meta de investimento (RN-29b);
   - para cada classe e cada categoria com limite: consumido, comprometido e disponível, com os alertas de RN-32;
   - gastos por categoria, inclusive as sem limite, do maior para o menor;
+  - gastos por forma de pagamento (RN-71);
   - total pendente do período e quantidade de contas atrasadas (RN-22a), com atalho para as Contas do mês (RN-50).
 - **RN-49 — Comparação com o período anterior.** Para cada categoria e classe de despesa, o painel compara o gasto do período com o do período anterior, em reais e em porcentagem. Se o período anterior não teve gasto, mostra "novo" em vez da porcentagem.
   - A comparação considera todas as despesas pela data, pagas ou pendentes, porque mede o quanto se gastou, e não o quanto já saiu da conta.
@@ -166,10 +178,10 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 
   Compras no cartão não aparecem uma a uma: cada fatura que vence no período aparece como um único item, com o valor total e o check da fatura (RN-54). O topo mostra o progresso ("8 de 12 contas pagas") e o total que falta pagar e receber.
 
-## Cartões de crédito *(planejada)*
+## Cartões de crédito *(em parte: cadastro e escolha do cartão; faturas, limite e parcelamento planejados)*
 
-- **RN-51 — Cadastro.** Um cartão tem nome (1 a 30 caracteres, único entre os cartões do usuário), limite (valor > 0, até o máximo de RN-20), dia de fechamento (1 a 31), dia de vencimento (1 a 31) e cor da paleta (RN-16a). Cada usuário pode ter até 10 cartões. Nos meses em que o dia de fechamento ou de vencimento não existe, usa-se o último dia do mês.
-- **RN-52 — Compra no cartão.** Ao lançar uma despesa, o usuário pode indicar o cartão usado. Receitas não podem ter cartão. A compra conta no orçamento e nos gastos pela data da compra, como qualquer despesa.
+- **RN-51 — Cadastro.** Um cartão tem nome (1 a 30 caracteres, único entre os cartões do usuário), limite (valor > 0, até o máximo de RN-20), dia de fechamento (1 a 31), dia de vencimento (1 a 31) e cor da paleta (RN-16a). Cada usuário pode ter até 10 cartões. Nos meses em que o dia de fechamento ou de vencimento não existe, usa-se o último dia do mês. Os cartões são gerenciados nas configurações da conta (RN-47a). O limite e as datas já são pedidos no cadastro, embora só sejam usados nas faturas (RN-53 a RN-55).
+- **RN-52 — Compra no cartão.** Uma despesa com a forma de pagamento **Crédito** (RN-67) exige um cartão do usuário que não esteja arquivado (RN-57); as demais formas não têm cartão. Ao editar uma compra antiga feita num cartão que depois foi arquivado, o cartão é mantido. Receitas não podem ter cartão. A compra conta no orçamento e nos gastos pela data da compra, como qualquer despesa.
 - **RN-53 — Fatura.** Cada cartão tem uma fatura por mês, identificada pelo mês de vencimento. A compra entra na fatura que fecha depois da data da compra: compras feitas **no dia do fechamento ou depois** vão para a fatura seguinte. A fatura vence no dia de vencimento do mesmo mês do fechamento se esse dia for depois do fechamento, ou do mês seguinte caso contrário.
 
   Exemplo: cartão que fecha dia 25 e vence dia 2. Uma compra em 24/11 entra na fatura que fecha em 25/11 e vence em 02/12. Uma compra em 25/11 vai para a fatura que fecha em 25/12 e vence em 02/01.

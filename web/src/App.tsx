@@ -10,6 +10,7 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { PaymentsPage } from './pages/PaymentsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { VerifyEmailPendingPage } from './pages/VerifyEmailPendingPage';
 
@@ -76,6 +77,8 @@ function Routes() {
     <AppLayout user={user}>
       {path === '/lancamentos' ? (
         <EntriesPage user={user} />
+      ) : path === '/configuracoes/pagamentos' ? (
+        <PaymentsPage />
       ) : path === '/configuracoes/categorias' || path === '/categorias' ? (
         <CategoriesPage />
       ) : path === '/configuracoes' ? (

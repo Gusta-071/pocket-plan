@@ -6,7 +6,7 @@ import { MoneyInput } from '../components/MoneyInput';
 import { PasswordStrength } from '../components/PasswordStrength';
 import { Sheet } from '../components/Sheet';
 import { api } from '../lib/api';
-import { CATEGORIES_PATH } from '../components/ManageCategoriesLink';
+import { CATEGORIES_PATH, PAYMENTS_PATH } from '../components/ManageCategoriesLink';
 import { Link, navigate } from '../lib/router';
 import { applyTheme, type Theme } from '../lib/theme';
 import { useSubmit } from '../lib/useSubmit';
@@ -18,6 +18,7 @@ export function SettingsPage({ user }: { user: User }) {
       <div className="settings">
         <ProfileSection user={user} />
         <CategoriesSection />
+        <PaymentsSection />
         <WarningSection user={user} />
         <PeriodSection user={user} />
         <InitialBalanceSection user={user} />
@@ -90,6 +91,17 @@ function WarningSection({ user }: { user: User }) {
           {save.submitting ? 'Salvando…' : 'Salvar nível de atenção'}
         </button>
       </form>
+    </Section>
+  );
+}
+
+/** RN-47a, RN-51, RN-69: formas de pagamento e cartões ficam dentro dos ajustes. */
+function PaymentsSection() {
+  return (
+    <Section title="Formas de pagamento e cartões" description="Crie formas de pagamento próprias e cadastre os cartões de crédito.">
+      <Link href={PAYMENTS_PATH} className="button button--ghost settings__link">
+        Gerenciar formas de pagamento e cartões
+      </Link>
     </Section>
   );
 }

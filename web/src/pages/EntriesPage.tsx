@@ -8,6 +8,7 @@ import { PeriodNav } from '../components/PeriodNav';
 import { api } from '../lib/api';
 import { CATEGORY_COLORS, type Category, type CategoryType } from '../lib/categories';
 import { formatMoney, formatSigned } from '../lib/money';
+import { paymentLabel, usePayments } from '../lib/payments';
 import { useCategories } from '../lib/useCategories';
 
 type Totals = {
@@ -44,6 +45,9 @@ export function EntriesPage({ user }: { user: User }) {
   const [offset, setOffset] = useState(0);
   const [type, setType] = useState<CategoryType | 'ALL'>('ALL');
   const [categoryId, setCategoryId] = useState<number | 'ALL'>('ALL');
+  // RN-71: "m:<id>" filtra por forma de pagamento; "c:<id>", por cartão.
+  const [payment, setPayment] = useState<string>('ALL');
+  const { methods, cards } = usePayments();
   const [data, setData] = useState<{ entries: Entry[]; totals: Totals } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<EntrySheetMode | null>(null);
@@ -59,6 +63,8 @@ export function EntriesPage({ user }: { user: User }) {
     const params = new URLSearchParams({ start: period.start, end: period.end });
     if (type !== 'ALL') params.set('type', type);
     if (categoryId !== 'ALL') params.set('categoryId', String(categoryId));
+    if (payment.startsWith('m:')) params.set('paymentMethodId', payment.slice(2));
+    if (payment.startsWith('c:')) params.set('cardId', payment.slice(2));
     try {
       const result = await api<{ entries: Entry[]; totals: Totals }>(`/entries?${params}`);
       if (request !== lastRequest.current) return;
@@ -68,7 +74,7 @@ export function EntriesPage({ user }: { user: User }) {
       if (request !== lastRequest.current) return;
       setLoadError(err instanceof Error ? err.message : 'Erro ao carregar os lançamentos.');
     }
-  }, [period.start, period.end, type, categoryId]);
+  }, [period.start, period.end, type, categoryId, payment]);
 
   useEffect(() => {
     void load();
@@ -79,6 +85,7 @@ export function EntriesPage({ user }: { user: User }) {
 
   function changeType(next: CategoryType | 'ALL') {
     setType(next);
+    if (next === 'INCOME') setPayment('ALL');
     // A categoria escolhida pode não existir no novo tipo.
     if (categoryId !== 'ALL' && next !== 'ALL' && byId.get(categoryId)?.type !== next) setCategoryId('ALL');
   }
@@ -211,6 +218,31 @@ export function EntriesPage({ user }: { user: User }) {
             </option>
           ))}
         </select>
+        {type !== 'INCOME' && methods && cards && (
+          <>
+            <label className="visually-hidden" htmlFor="filter-payment">
+              Filtrar por forma de pagamento
+            </label>
+            <select id="filter-payment" className="filters__select" value={payment} onChange={(e) => setPayment(e.target.value)}>
+              <option value="ALL">Todas as formas de pagamento</option>
+              {methods.map((method) => (
+                <option key={method.id} value={`m:${method.id}`}>
+                  {method.name}
+                </option>
+              ))}
+              {cards.length > 0 && (
+                <optgroup label="Cartões">
+                  {cards.map((card) => (
+                    <option key={card.id} value={`c:${card.id}`}>
+                      {card.name}
+                      {card.archived ? ' (arquivado)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </>
+        )}
       </div>
 
       {(loadError || categoriesError) && <Alert kind="error">{loadError ?? categoriesError}</Alert>}
@@ -222,7 +254,7 @@ export function EntriesPage({ user }: { user: User }) {
 
       {data && groups.length === 0 && (
         <div className="empty">
-          <p>Nenhum lançamento neste período{type !== 'ALL' || categoryId !== 'ALL' ? ' com esses filtros' : ''}.</p>
+          <p>Nenhum lançamento neste período{type !== 'ALL' || categoryId !== 'ALL' || payment !== 'ALL' ? ' com esses filtros' : ''}.</p>
           <p className="muted small">Toque em “+” para registrar uma receita ou despesa.</p>
         </div>
       )}
@@ -253,7 +285,9 @@ export function EntriesPage({ user }: { user: User }) {
                     <span className="entry__text">
                       <span className="list__label">{label}</span>
                       <span className="muted small">
-                        {entry.description ? category?.name : null}
+                        {[entry.description ? category?.name : null, paymentLabel(entry, methods ?? [], cards ?? [])]
+                          .filter(Boolean)
+                          .join(' · ')}
                         {entry.overdue ? (
                           <span className="badge badge--danger">Atrasado</span>
                         ) : (
@@ -276,14 +310,21 @@ export function EntriesPage({ user }: { user: User }) {
         type="button"
         className="fab"
         onClick={() => setSheet({ kind: 'create', type: type === 'INCOME' ? 'INCOME' : 'EXPENSE' })}
-        disabled={!categories}
+        disabled={!categories || !methods || !cards}
       >
         <span aria-hidden="true">+</span>
         <span className="fab__label">Novo lançamento</span>
       </button>
 
-      {sheet && categories && (
-        <EntrySheet mode={sheet} categories={categories} onClose={() => setSheet(null)} onSaved={handleSaved} />
+      {sheet && categories && methods && cards && (
+        <EntrySheet
+          mode={sheet}
+          categories={categories}
+          methods={methods}
+          cards={cards}
+          onClose={() => setSheet(null)}
+          onSaved={handleSaved}
+        />
       )}
     </>
   );

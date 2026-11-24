@@ -9,6 +9,8 @@ export async function resetDatabase() {
   await prisma.emailVerificationToken.deleteMany();
   await prisma.budget.deleteMany();
   await prisma.entry.deleteMany();
+  await prisma.card.deleteMany();
+  await prisma.paymentMethod.deleteMany();
   await prisma.category.deleteMany();
   await prisma.session.deleteMany();
   await prisma.user.deleteMany();
@@ -30,4 +32,10 @@ export async function createVerifiedUser(app: Express, email = 'ana@example.com'
     .expect(201);
   await prisma.user.update({ where: { email }, data: { emailVerifiedAt: new Date() } });
   return sessionCookieOf(response);
+}
+
+/** Id de uma forma de pagamento da conta (RN-67, RN-68), pelo tipo. Despesas exigem uma. */
+export async function paymentMethodIdOf(app: Express, cookie: string, kind = 'PIX'): Promise<number> {
+  const response = await request(app).get('/api/payment-methods').set('Cookie', cookie).expect(200);
+  return (response.body.paymentMethods as { id: number; kind: string }[]).find((m) => m.kind === kind)!.id;
 }
