@@ -37,6 +37,8 @@ model User {
   categories              Category[]
   entries                 Entry[]
   budgets                 Budget[]
+  paymentMethods          PaymentMethod[]
+  cards                   Card[]
 }
 
 /// Código de confirmação de e-mail: só o hash, 24 horas, uso único (RN-09f).
@@ -112,26 +114,34 @@ model Category {
 
 /// Lançamento de receita ou despesa (RN-19 a RN-25d).
 model Entry {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              Int            @id @default(autoincrement())
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// INCOME | EXPENSE, igual ao tipo da categoria (RN-21).
-  type        String
+  type            String
   /// Valor em centavos, maior que zero (RN-01, RN-20).
-  amountCents Int
+  amountCents     Int
   /// Data sem horário, "AAAA-MM-DD" (RN-03). O formato ordena corretamente como texto.
-  date        String
-  categoryId  Int
+  date            String
+  categoryId      Int
   /// Restrict: uma categoria com lançamentos só sai movendo-os antes (RN-18).
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  description String?
+  category        Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  description     String?
   /// Pago (despesa) ou recebido (receita), marcado pelo usuário (RN-22).
-  paid        Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  paid            Boolean        @default(false)
+  /// Forma de pagamento (RN-67). Só nas despesas; nula nas receitas.
+  paymentMethodId Int?
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  /// Cartão da compra no crédito (RN-52). Nulo nas demais formas.
+  cardId          Int?
+  card            Card?          @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([userId, date])
   @@index([categoryId])
+  @@index([paymentMethodId])
+  @@index([cardId])
 }
 
 /// Limite de orçamento ou meta, com vigência (RN-29 a RN-34).
@@ -156,4 +166,44 @@ model Budget {
 
   @@index([userId, kind])
   @@index([categoryId])
+}
+
+/// Forma de pagamento das despesas (RN-67 a RN-70).
+/// As padrão (PIX, DEBIT, CREDIT, CASH, BOLETO) e a "Não informada" (UNSPECIFIED) são criadas com a conta;
+/// as personalizadas (CUSTOM) são do usuário.
+model PaymentMethod {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// PIX | DEBIT | CREDIT | CASH | BOLETO | UNSPECIFIED | CUSTOM.
+  kind      String
+  name      String
+  /// Nome sem espaços nas pontas e em minúsculas: garante a unicidade de RN-69.
+  nameKey   String
+  createdAt DateTime @default(now())
+  entries   Entry[]
+
+  @@unique([userId, nameKey])
+  @@index([userId])
+}
+
+/// Cartão de crédito (RN-51, RN-57). Limite e datas são usados nas faturas (RN-53 a RN-55).
+model Card {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  nameKey    String
+  /// Chave da paleta fixa (RN-16a).
+  color      String
+  limitCents Int
+  closingDay Int
+  dueDay     Int
+  /// Preenchido quando o cartão é arquivado (RN-57): some das compras novas, mas mantém o histórico.
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  entries    Entry[]
+
+  @@unique([userId, nameKey])
+  @@index([userId])
 }

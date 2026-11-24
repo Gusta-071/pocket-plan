@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { addMonths, formatDate } from '../../../shared/period';
 import { api } from '../lib/api';
 import { formatMoney } from '../lib/money';
+import { usePayments, type Card, type PaymentMethod } from '../lib/payments';
 
 type Proposal = {
   type: 'INCOME' | 'EXPENSE';
@@ -14,7 +15,11 @@ type Proposal = {
   repeatMonths: number;
 };
 
-type ProposalState = Proposal & { status: 'pending' | 'saving' | 'saved' | 'discarded'; error?: string };
+/**
+ * `payment`: a forma escolhida para uma despesa (RN-67): "m:<id>" ou, no crédito, "c:<id do cartão>".
+ * O assistente sugere Pix, e a pessoa troca antes de salvar se precisar.
+ */
+type ProposalState = Proposal & { status: 'pending' | 'saving' | 'saved' | 'discarded'; error?: string; payment?: string };
 
 type Message =
   | { role: 'user'; content: string }
@@ -38,6 +43,8 @@ export function Assistant({ onSaved }: { onSaved: () => void }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const { methods, cards } = usePayments();
+  const defaultPayment = methods?.find((m) => m.kind === 'PIX');
 
   useEffect(() => {
     api<{ available: boolean; reason?: string }>('/assistant/status')
@@ -71,7 +78,11 @@ export function Assistant({ onSaved }: { onSaved: () => void }) {
         {
           role: 'assistant',
           content: result.reply,
-          proposals: result.proposals.map((p) => ({ ...p, status: 'pending' })),
+          proposals: result.proposals.map((p) => ({
+            ...p,
+            status: 'pending',
+            payment: p.type === 'EXPENSE' && defaultPayment ? `m:${defaultPayment.id}` : undefined,
+          })),
           discarded: result.discarded,
         },
       ]);
@@ -108,6 +119,7 @@ export function Assistant({ onSaved }: { onSaved: () => void }) {
           categoryId: proposal.categoryId,
           description: proposal.description || null,
           paid: proposal.paid,
+          ...paymentFields(proposal.payment, methods ?? []),
         }),
       });
       if (proposal.repeatMonths > 0) {
@@ -166,6 +178,9 @@ export function Assistant({ onSaved }: { onSaved: () => void }) {
                 <ProposalCard
                   key={j}
                   proposal={proposal}
+                  methods={methods ?? []}
+                  cards={cards ?? []}
+                  onPaymentChange={(payment) => updateProposal(i, j, { payment })}
                   onSave={() => void save(i, j, proposal)}
                   onDiscard={() => updateProposal(i, j, { status: 'discarded' })}
                 />
@@ -218,7 +233,29 @@ export function Assistant({ onSaved }: { onSaved: () => void }) {
   );
 }
 
-function ProposalCard({ proposal, onSave, onDiscard }: { proposal: ProposalState; onSave: () => void; onDiscard: () => void }) {
+/** Converte a escolha do seletor para os campos do lançamento (RN-67, RN-52). */
+function paymentFields(payment: string | undefined, methods: PaymentMethod[]) {
+  if (!payment) return {};
+  const id = Number(payment.slice(2));
+  if (payment.startsWith('c:')) return { paymentMethodId: methods.find((m) => m.kind === 'CREDIT')?.id ?? null, cardId: id };
+  return { paymentMethodId: id, cardId: null };
+}
+
+function ProposalCard({
+  proposal,
+  methods,
+  cards,
+  onPaymentChange,
+  onSave,
+  onDiscard,
+}: {
+  proposal: ProposalState;
+  methods: PaymentMethod[];
+  cards: Card[];
+  onPaymentChange: (payment: string) => void;
+  onSave: () => void;
+  onDiscard: () => void;
+}) {
   const lastDate = proposal.repeatMonths > 0 ? addMonths(proposal.date, proposal.repeatMonths) : null;
   const kind = proposal.type === 'INCOME' ? 'income' : 'expense';
   const done = proposal.status === 'saved' || proposal.status === 'discarded';
@@ -239,6 +276,44 @@ function ProposalCard({ proposal, onSave, onDiscard }: { proposal: ProposalState
           <dt>Categoria</dt>
           <dd>{proposal.categoryName}</dd>
         </div>
+        {proposal.type === 'EXPENSE' && (
+          <div>
+            <dt>
+              <label htmlFor={`proposal-payment-${proposal.date}-${proposal.amountCents}`}>Pagamento</label>
+            </dt>
+            <dd>
+              <select
+                id={`proposal-payment-${proposal.date}-${proposal.amountCents}`}
+                className="proposal__select"
+                value={proposal.payment ?? ''}
+                disabled={done}
+                onChange={(e) => onPaymentChange(e.target.value)}
+              >
+                <option value="" disabled>
+                  Escolha
+                </option>
+                {methods
+                  .filter((m) => m.selectable && m.kind !== 'CREDIT')
+                  .map((m) => (
+                    <option key={m.id} value={`m:${m.id}`}>
+                      {m.name}
+                    </option>
+                  ))}
+                {cards.filter((c) => !c.archived).length > 0 && (
+                  <optgroup label="Crédito">
+                    {cards
+                      .filter((c) => !c.archived)
+                      .map((c) => (
+                        <option key={c.id} value={`c:${c.id}`}>
+                          Crédito · {c.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+              </select>
+            </dd>
+          </div>
+        )}
         <div>
           <dt>Situação</dt>
           <dd>{proposal.paid ? (proposal.type === 'INCOME' ? 'Recebido' : 'Pago') : 'Pendente'}</dd>

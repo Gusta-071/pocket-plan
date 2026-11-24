@@ -1,12 +1,13 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
-import { createVerifiedUser, resetDatabase, sessionCookieOf } from './helpers.js';
+import { createVerifiedUser, paymentMethodIdOf, resetDatabase, sessionCookieOf } from './helpers.js';
 
 vi.mock('../src/lib/mailer.js', () => ({ sendMail: vi.fn() }));
 
 const app = createApp();
 let cookie: string;
+let pix: number;
 let food: number;
 let leisure: number;
 let housing: number;
@@ -27,7 +28,7 @@ const get = (date?: string) => request(app).get(`/api/budgets${date ? `?date=${d
 const dashboard = (date?: string) => request(app).get(`/api/dashboard${date ? `?date=${date}` : ''}`).set('Cookie', cookie);
 
 async function add(amountCents: number, date: string, paid: boolean, categoryId: number, type: 'INCOME' | 'EXPENSE' = 'EXPENSE') {
-  await request(app).post('/api/entries').set('Cookie', cookie).send({ type, amountCents, date, categoryId, paid }).expect(201);
+  await request(app).post('/api/entries').set('Cookie', cookie).send({ type, amountCents, date, categoryId, paid, paymentMethodId: type === 'EXPENSE' ? pix : null }).expect(201);
 }
 
 async function categoryId(name: string): Promise<number> {
@@ -40,6 +41,7 @@ beforeEach(async () => {
   setToday('2026-11-10');
   await resetDatabase();
   cookie = await createVerifiedUser(app);
+  pix = await paymentMethodIdOf(app, cookie);
   food = await categoryId('Alimentação');
   leisure = await categoryId('Lazer');
   housing = await categoryId('Moradia');

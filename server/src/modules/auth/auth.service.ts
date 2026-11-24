@@ -5,6 +5,7 @@ import { AppError } from '../../lib/errors.js';
 import { sendMail } from '../../lib/mailer.js';
 import { prisma } from '../../lib/prisma.js';
 import { categoryNameKey, DEFAULT_CATEGORIES } from '../categories/categories.constants.js';
+import { defaultPaymentMethodsData } from '../payment-methods/payment-methods.constants.js';
 import type {
   forgotPasswordSchema,
   loginSchema,
@@ -120,6 +121,8 @@ export async function register(input: z.infer<typeof registerSchema>, appUrl: st
       categories: {
         create: DEFAULT_CATEGORIES.map((category) => ({ ...category, nameKey: categoryNameKey(category.name) })),
       },
+      // RN-68, RN-70: as formas de pagamento padrão.
+      paymentMethods: { create: defaultPaymentMethodsData() },
     },
   });
 

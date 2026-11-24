@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, addMonths, maxEntryDate, today } from '../../shared/period.js';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
-import { createVerifiedUser, resetDatabase } from './helpers.js';
+import { createVerifiedUser, paymentMethodIdOf, resetDatabase } from './helpers.js';
 
 vi.mock('../src/lib/mailer.js', () => ({ sendMail: vi.fn() }));
 
@@ -12,6 +12,7 @@ let cookie: string;
 let food: number; // despesa
 let leisure: number; // despesa
 let salary: number; // receita
+let pix: number; // forma de pagamento (RN-67)
 
 type Entry = { id: number; type: string; amountCents: number; date: string; categoryId: number; description: string | null; paid: boolean; overdue: boolean };
 
@@ -22,7 +23,7 @@ const list = (query: string, sessionCookie = cookie) => request(app).get(`/api/e
 const repeat = (id: number, times: number) => request(app).post(`/api/entries/${id}/repeat`).set('Cookie', cookie).send({ times });
 
 function expense(overrides: object = {}) {
-  return { type: 'EXPENSE', amountCents: 5000, date: '2026-11-10', categoryId: food, description: 'Mercado', ...overrides };
+  return { type: 'EXPENSE', amountCents: 5000, date: '2026-11-10', categoryId: food, description: 'Mercado', paymentMethodId: pix, ...overrides };
 }
 
 async function categoryId(name: string, sessionCookie = cookie): Promise<number> {
@@ -36,6 +37,7 @@ beforeEach(async () => {
   food = await categoryId('Alimentação');
   leisure = await categoryId('Lazer');
   salary = await categoryId('Salário');
+  pix = await paymentMethodIdOf(app, cookie);
 });
 
 afterEach(() => {

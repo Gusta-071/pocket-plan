@@ -3,9 +3,10 @@ import { addMonths, formatDate, maxEntryDate, MIN_ENTRY_DATE, today } from '../.
 import { api } from '../lib/api';
 import { EXPENSE_CLASS_LABELS, EXPENSE_CLASSES, TYPE_LABELS, type Category, type CategoryType } from '../lib/categories';
 import { formatMoney } from '../lib/money';
+import type { Card, PaymentMethod } from '../lib/payments';
 import { useSubmit } from '../lib/useSubmit';
 import { Alert, Field } from './Form';
-import { ManageCategoriesLink } from './ManageCategoriesLink';
+import { ManageCategoriesLink, ManagePaymentsLink } from './ManageCategoriesLink';
 import { MoneyInput } from './MoneyInput';
 import { Sheet } from './Sheet';
 
@@ -20,6 +21,10 @@ export type Entry = {
   paid: boolean;
   /** RN-22a: pendente com data passada. */
   overdue: boolean;
+  /** RN-67: forma de pagamento, só nas despesas. */
+  paymentMethodId: number | null;
+  /** RN-52: cartão, só nas compras no crédito. */
+  cardId: number | null;
 };
 
 type Draft = Omit<Entry, 'id' | 'overdue'>;
@@ -37,12 +42,14 @@ export type EntrySheetMode =
 type Props = {
   mode: EntrySheetMode;
   categories: Category[];
+  methods: PaymentMethod[];
+  cards: Card[];
   onClose: () => void;
   /** Chamado após salvar, com a data do lançamento (para mostrar o período certo). */
   onSaved: (date: string) => void;
 };
 
-export function EntrySheet({ mode, categories, onClose, onSaved }: Props) {
+export function EntrySheet({ mode, categories, methods, cards, onClose, onSaved }: Props) {
   const [view, setView] = useState<'form' | 'repeat' | 'delete'>('form');
   const [current, setCurrent] = useState(mode);
 
@@ -57,6 +64,8 @@ export function EntrySheet({ mode, categories, onClose, onSaved }: Props) {
       key={current.kind}
       mode={current}
       categories={categories}
+      methods={methods}
+      cards={cards}
       onClose={onClose}
       onSaved={onSaved}
       onDuplicate={(entry) => setCurrent({ kind: 'duplicate', entry })}
@@ -66,19 +75,36 @@ export function EntrySheet({ mode, categories, onClose, onSaved }: Props) {
   );
 }
 
-function initialDraft(mode: EntrySheetMode, categories: Category[]): Draft {
+function initialDraft(mode: EntrySheetMode, categories: Category[], methods: PaymentMethod[], cards: Card[]): Draft {
   if (mode.kind !== 'create') {
-    const { type, amountCents, date, categoryId, description, paid } = mode.entry;
-    // RN-25a: a cópia recebe a situação sugerida pela data, como na criação.
-    return { type, amountCents, date, categoryId, description, paid: mode.kind === 'edit' ? paid : suggestedPaid(date) };
+    const { type, amountCents, date, categoryId, description, paid, paymentMethodId, cardId } = mode.entry;
+    const duplicate = mode.kind === 'duplicate';
+    // RN-70: a "Não informada" não pode ir para uma cópia; o usuário escolhe uma forma de verdade.
+    const unspecified = methods.find((m) => m.id === paymentMethodId)?.selectable === false;
+    // RN-57: um cartão arquivado não vai para uma cópia.
+    const archivedCard = cards.find((c) => c.id === cardId)?.archived === true;
+    return {
+      type,
+      amountCents,
+      date,
+      categoryId,
+      description,
+      // RN-25a: a cópia recebe a situação sugerida pela data, como na criação.
+      paid: duplicate ? suggestedPaid(date) : paid,
+      paymentMethodId: duplicate && unspecified ? null : paymentMethodId,
+      cardId: duplicate && (unspecified || archivedCard) ? null : cardId,
+    };
   }
   const first = categories.find((c) => c.type === mode.type);
-  return { type: mode.type, amountCents: 0, date: today(), categoryId: first?.id ?? 0, description: '', paid: true };
+  // RN-67: nenhuma forma vem marcada; o usuário escolhe.
+  return { type: mode.type, amountCents: 0, date: today(), categoryId: first?.id ?? 0, description: '', paid: true, paymentMethodId: null, cardId: null };
 }
 
 function FormSheet({
   mode,
   categories,
+  methods,
+  cards,
   onClose,
   onSaved,
   onDuplicate,
@@ -90,7 +116,12 @@ function FormSheet({
   onRepeat: () => void;
   onDelete: () => void;
 }) {
-  const [draft, setDraft] = useState<Draft>(() => initialDraft(mode, categories));
+  const [draft, setDraft] = useState<Draft>(() => initialDraft(mode, categories, methods, cards));
+  const original = mode.kind === 'edit' ? mode.entry : null;
+  // RN-70 e RN-57: na edição, a despesa antiga mantém a "Não informada" e o cartão arquivado.
+  const methodOptions = methods.filter((m) => m.selectable || m.id === original?.paymentMethodId);
+  const cardOptions = cards.filter((c) => !c.archived || c.id === original?.cardId);
+  const isCredit = methods.find((m) => m.id === draft.paymentMethodId)?.kind === 'CREDIT';
   // Na criação e na cópia, o check acompanha a data até o usuário mexer nele (RN-22).
   // Na edição, mudar a data não muda a situação (RN-24).
   const [paidTouched, setPaidTouched] = useState(mode.kind === 'edit');
@@ -101,7 +132,13 @@ function FormSheet({
   }
 
   const save = useSubmit(async () => {
-    const body = JSON.stringify({ ...draft, description: draft.description?.trim() || null });
+    const isExpense = draft.type === 'EXPENSE';
+    const body = JSON.stringify({
+      ...draft,
+      description: draft.description?.trim() || null,
+      paymentMethodId: isExpense ? draft.paymentMethodId : null,
+      cardId: isExpense && isCredit ? draft.cardId : null,
+    });
     if (mode.kind === 'edit') {
       await api(`/entries/${mode.entry.id}`, { method: 'PUT', body });
     } else {
@@ -144,6 +181,17 @@ function FormSheet({
           cents={draft.amountCents}
           onChange={(amountCents) => setDraft((d) => ({ ...d, amountCents }))}
           error={save.fieldErrors.amountCents}
+        />
+
+        {/* RN-19: texto livre para lembrar do que se trata. Fica logo depois do valor para não passar despercebido. */}
+        <Field
+          label="Descrição (opcional)"
+          maxLength={120}
+          autoComplete="off"
+          placeholder={draft.type === 'EXPENSE' ? 'Ex.: compras do mercado' : 'Ex.: salário de novembro'}
+          value={draft.description ?? ''}
+          onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+          error={save.fieldErrors.description}
         />
 
         <Field
@@ -193,14 +241,59 @@ function FormSheet({
           {save.fieldErrors.categoryId && <span className="field__error">{save.fieldErrors.categoryId}</span>}
         </div>
 
-        <Field
-          label="Descrição (opcional)"
-          maxLength={120}
-          autoComplete="off"
-          value={draft.description ?? ''}
-          onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-          error={save.fieldErrors.description}
-        />
+        {draft.type === 'EXPENSE' && (
+          <div className="field">
+            <div className="field__label-row">
+              <label htmlFor="entry-payment">Forma de pagamento</label>
+              <ManagePaymentsLink />
+            </div>
+            <select
+              id="entry-payment"
+              value={draft.paymentMethodId ?? ''}
+              onChange={(e) => setDraft((d) => ({ ...d, paymentMethodId: e.target.value ? Number(e.target.value) : null }))}
+              aria-invalid={save.fieldErrors.paymentMethodId ? true : undefined}
+            >
+              <option value="" disabled>
+                Escolha
+              </option>
+              {methodOptions.map((method) => (
+                <option key={method.id} value={method.id}>
+                  {method.name}
+                </option>
+              ))}
+            </select>
+            {save.fieldErrors.paymentMethodId && <span className="field__error">{save.fieldErrors.paymentMethodId}</span>}
+          </div>
+        )}
+
+        {draft.type === 'EXPENSE' && isCredit && (
+          <div className="field">
+            <label htmlFor="entry-card">Cartão</label>
+            {cardOptions.length === 0 ? (
+              <p className="muted small">
+                Você ainda não tem cartões. Cadastre um em Ajustes → Formas de pagamento e cartões <ManagePaymentsLink />
+              </p>
+            ) : (
+              <select
+                id="entry-card"
+                value={draft.cardId ?? ''}
+                onChange={(e) => setDraft((d) => ({ ...d, cardId: e.target.value ? Number(e.target.value) : null }))}
+                aria-invalid={save.fieldErrors.cardId ? true : undefined}
+              >
+                <option value="" disabled>
+                  Escolha o cartão
+                </option>
+                {cardOptions.map((card) => (
+                  <option key={card.id} value={card.id}>
+                    {card.name}
+                    {card.archived ? ' (arquivado)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            {save.fieldErrors.cardId && <span className="field__error">{save.fieldErrors.cardId}</span>}
+          </div>
+        )}
 
         <button className="button" type="submit" disabled={save.submitting}>
           {save.submitting ? 'Salvando…' : mode.kind === 'duplicate' ? 'Criar cópia' : 'Salvar'}

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { AssistantUnavailableError, askModel, type ModelProposal } from '../src/modules/assistant/assistant.model.js';
 import { amountsIn, statusIn, ASSISTANT_LIMIT, resetAssistantLimit, resolveWhen } from '../src/modules/assistant/assistant.service.js';
-import { createVerifiedUser, resetDatabase } from './helpers.js';
+import { createVerifiedUser, paymentMethodIdOf, resetDatabase } from './helpers.js';
 
 vi.mock('../src/lib/mailer.js', () => ({ sendMail: vi.fn() }));
 // O modelo é simulado: os testes conferem o que o app faz com a resposta, sem depender do Ollama.
@@ -175,7 +175,7 @@ describe('assistente (RN-66)', () => {
 
   it('usa a categoria que a pessoa já usou para a mesma descrição', async () => {
     const food = ((await request(app).get('/api/categories').set('Cookie', cookie)).body.categories as { id: number; name: string }[]).find((c) => c.name === 'Alimentação')!.id;
-    await request(app).post('/api/entries').set('Cookie', cookie).send({ type: 'EXPENSE', amountCents: 10000, date: '2026-11-01', categoryId: food, description: 'Mercado' }).expect(201);
+    await request(app).post('/api/entries').set('Cookie', cookie).send({ type: 'EXPENSE', amountCents: 10000, date: '2026-11-01', categoryId: food, description: 'Mercado', paymentMethodId: await paymentMethodIdOf(app, cookie) }).expect(201);
 
     ask.mockResolvedValue({ reply: 'ok', proposals: [proposal({ amount: 230, when: 'hoje', category: 'Compras', description: 'mercado' })] });
     expect((await send('230 no mercado')).body.proposals[0].categoryName).toBe('Alimentação');
