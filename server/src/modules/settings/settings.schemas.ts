@@ -6,7 +6,9 @@ import { MAX_AMOUNT_CENTS } from '../entries/entries.schemas.js';
 /** RN-42: mesmo limite de nome do cadastro (RN-05). */
 export const profileSchema = z.object({ name: registerSchema.shape.name });
 
-/** RN-10, RN-12, RN-44, RN-44a, RN-45. Envia só o que mudou. */
+const WARNING_ERROR = 'Escolha um nível de atenção de 0% a 100%.';
+
+/** RN-10, RN-12, RN-32a, RN-44, RN-44a, RN-45. Envia só o que mudou. */
 export const preferencesSchema = z
   .strictObject({
     monthStartDay: z
@@ -23,6 +25,12 @@ export const preferencesSchema = z
       .int({ error: 'Valor inválido.' })
       .min(-MAX_AMOUNT_CENTS, { error: 'O saldo inicial deve estar entre −R$ 10.000.000,00 e R$ 10.000.000,00.' })
       .max(MAX_AMOUNT_CENTS, { error: 'O saldo inicial deve estar entre −R$ 10.000.000,00 e R$ 10.000.000,00.' })
+      .optional(),
+    warningPercent: z
+      .number({ error: WARNING_ERROR })
+      .int({ error: WARNING_ERROR })
+      .min(0, { error: WARNING_ERROR })
+      .max(100, { error: WARNING_ERROR })
       .optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { error: 'Nada para alterar.' });

@@ -128,6 +128,28 @@ async function main() {
 
   await prisma.entry.createMany({ data: rows });
 
+  // Orçamento e metas (RN-29 a RN-34), valendo desde o primeiro mês da demonstração.
+  // Lazer recebe um limite apertado, e Alimentação um perto do limite, para mostrar os alertas.
+  const since = toDateString(now.year, now.month - 5, 1);
+  const budget = (kind: string, amountCents: number, target: { categoryId?: number; expenseClass?: string } = {}) => ({
+    userId: user.id,
+    kind,
+    amountCents,
+    validFrom: since,
+    ...target,
+  });
+  await prisma.budget.createMany({
+    data: [
+      budget('CATEGORY_LIMIT', 220000, { categoryId: categoryId('EXPENSE', 'Alimentação') }),
+      budget('CATEGORY_LIMIT', 25000, { categoryId: categoryId('EXPENSE', 'Lazer') }),
+      budget('CATEGORY_LIMIT', 80000, { categoryId: categoryId('EXPENSE', 'Transporte') }),
+      budget('CLASS_LIMIT', 400000, { expenseClass: 'FIXED' }),
+      budget('CLASS_LIMIT', 360000, { expenseClass: 'VARIABLE' }),
+      budget('SAVINGS_GOAL', 100000),
+      budget('INVESTMENT_GOAL', 80000),
+    ],
+  });
+
   const dates = rows.map((r) => r.date).sort();
   const overdue = rows.filter((r) => !r.paid && r.date < todayValue).length;
   console.log(`Conta de demonstração criada: ${EMAIL} / ${PASSWORD}`);

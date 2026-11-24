@@ -68,7 +68,7 @@ export function Field({ label, error, hint, children, type, ...input }: FieldPro
   );
 }
 
-export function Alert({ kind, children }: { kind: 'error' | 'success'; children: ReactNode }) {
+export function Alert({ kind, children }: { kind: 'error' | 'success' | 'warning'; children: ReactNode }) {
   return (
     <div className={`alert alert--${kind}`} role={kind === 'error' ? 'alert' : 'status'}>
       {children}

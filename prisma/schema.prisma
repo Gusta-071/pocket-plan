@@ -23,6 +23,8 @@ model User {
   periodNaming        String    @default("AUTO")
   /// Ponto de partida do saldo acumulado, em centavos; pode ser negativo (RN-28a, RN-44a).
   initialBalanceCents Int       @default(0)
+  /// Nível de atenção do orçamento, em % do limite, de 0 a 100 (RN-32a).
+  warningPercent      Int       @default(80)
   /// LIGHT | DARK | SYSTEM (RN-45).
   theme               String    @default("SYSTEM")
   /// Preenchido quando o usuário confirma o e-mail (RN-09f, RN-09i).
@@ -34,6 +36,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   categories              Category[]
   entries                 Entry[]
+  budgets                 Budget[]
 }
 
 /// Código de confirmação de e-mail: só o hash, 24 horas, uso único (RN-09f).
@@ -101,6 +104,7 @@ model Category {
   expenseClass String?
   createdAt    DateTime @default(now())
   entries      Entry[]
+  budgets      Budget[]
 
   @@unique([userId, type, nameKey])
   @@index([userId])
@@ -127,5 +131,29 @@ model Entry {
   updatedAt   DateTime @updatedAt
 
   @@index([userId, date])
+  @@index([categoryId])
+}
+
+/// Limite de orçamento ou meta, com vigência (RN-29 a RN-34).
+/// Cada alteração gera um registro novo; o valor de um período é o do registro mais recente
+/// com `validFrom` até o fim do período. Assim, os períodos anteriores mantêm o valor que tinham (RN-30).
+model Budget {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// CATEGORY_LIMIT | CLASS_LIMIT | INVESTMENT_GOAL | SAVINGS_GOAL.
+  kind         String
+  /// Só em CATEGORY_LIMIT. Excluir a categoria remove o limite dela (RN-18).
+  categoryId   Int?
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  /// Só em CLASS_LIMIT: FIXED | VARIABLE (RN-29a).
+  expenseClass String?
+  /// Em centavos. Nulo quando o usuário removeu o limite ou a meta.
+  amountCents  Int?
+  /// Dia em que a alteração foi feita ("YYYY-MM-DD"): vale do período que o contém em diante.
+  validFrom    String
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, kind])
   @@index([categoryId])
 }

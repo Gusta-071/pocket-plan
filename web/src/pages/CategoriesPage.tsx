@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { BudgetAmountSheet } from '../components/BudgetAmountSheet';
 import { Alert, Field } from '../components/Form';
+import { MoneyInput } from '../components/MoneyInput';
 import { Sheet } from '../components/Sheet';
 import { api, ApiError } from '../lib/api';
+import { saveBudget, useBudgets, type LimitedClass } from '../lib/budgets';
 import {
   CATEGORY_COLORS,
   EXPENSE_CLASS_LABELS,
@@ -12,18 +15,28 @@ import {
   type CategoryType,
   type ExpenseClass,
 } from '../lib/categories';
+import { formatMoney } from '../lib/money';
 import { Link } from '../lib/router';
 import { useSubmit } from '../lib/useSubmit';
 
 const MAX_PER_TYPE = 30; // RN-16b
 
-type Editing = { mode: 'create'; type: CategoryType } | { mode: 'edit'; category: Category } | null;
+type Editing =
+  | { mode: 'create'; type: CategoryType }
+  | { mode: 'edit'; category: Category }
+  | { mode: 'class-limit'; expenseClass: LimitedClass }
+  | null;
+
+const isLimited = (expenseClass: ExpenseClass | null): expenseClass is LimitedClass =>
+  expenseClass === 'FIXED' || expenseClass === 'VARIABLE';
 
 export function CategoriesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [type, setType] = useState<CategoryType>('EXPENSE');
   const [editing, setEditing] = useState<Editing>(null);
+  const { budgets, reload: reloadBudgets, setBudgets } = useBudgets();
+  const limitOf = new Map((budgets?.categoryLimits ?? []).map((l) => [l.categoryId, l.amountCents]));
 
   const load = useCallback(async () => {
     try {
@@ -45,16 +58,18 @@ export function CategoriesPage() {
   function closeAndReload() {
     setEditing(null);
     void load();
+    void reloadBudgets();
   }
 
   // As despesas aparecem agrupadas pela classe (RN-14a).
   const groups =
     type === 'EXPENSE'
       ? EXPENSE_CLASSES.map((expenseClass) => ({
+          expenseClass,
           title: EXPENSE_CLASS_LABELS[expenseClass].plural,
           items: visible.filter((c) => c.expenseClass === expenseClass),
         })).filter((group) => group.items.length > 0)
-      : [{ title: null, items: visible }];
+      : [{ expenseClass: null, title: null, items: visible }];
 
   return (
     <>
@@ -107,13 +122,37 @@ export function CategoriesPage() {
         <>
           {groups.map((group) => (
             <section key={group.title ?? 'all'}>
-              {group.title && <h2 className="class-group__title">{group.title}</h2>}
+              {group.title && (
+                <div className="class-group__header">
+                  <h2 className="class-group__title">{group.title}</h2>
+                  {/* RN-29a: limite da classe inteira. Investimento tem meta, editada no painel (RN-29b). */}
+                  {isLimited(group.expenseClass) && budgets && (
+                    <button
+                      type="button"
+                      className="link-button small"
+                      onClick={() => setEditing({ mode: 'class-limit', expenseClass: group.expenseClass as LimitedClass })}
+                    >
+                      {budgets.classLimits[group.expenseClass] === null
+                        ? 'Definir limite da classe'
+                        : `Limite da classe: ${formatMoney(budgets.classLimits[group.expenseClass]!)}`}
+                    </button>
+                  )}
+                </div>
+              )}
+              {isLimited(group.expenseClass) && budgets?.classWarnings[group.expenseClass] && (
+                <p className="alert alert--warning small" role="status">
+                  A soma dos limites das categorias passou do limite da classe. Tudo bem, mas confira se é isso mesmo.
+                </p>
+              )}
               <ul className="list" aria-label={group.title ?? TYPE_LABELS[type].plural}>
                 {group.items.map((category) => (
                   <li key={category.id}>
                     <button type="button" className="list__item" onClick={() => setEditing({ mode: 'edit', category })}>
                       <span className="color-dot" style={{ background: CATEGORY_COLORS[category.color].hex }} aria-hidden="true" />
                       <span className="list__label">{category.name}</span>
+                      {limitOf.has(category.id) && (
+                        <span className="muted small">Limite {formatMoney(limitOf.get(category.id)!)}</span>
+                      )}
                       <span className="list__action" aria-hidden="true">
                         Editar
                       </span>
@@ -133,10 +172,25 @@ export function CategoriesPage() {
       {editing?.mode === 'create' && (
         <CategorySheet type={editing.type} onClose={() => setEditing(null)} onSaved={closeAndReload} />
       )}
+      {editing?.mode === 'class-limit' && budgets && (
+        <BudgetAmountSheet
+          title={`Limite das despesas ${EXPENSE_CLASS_LABELS[editing.expenseClass].plural.toLowerCase()}`}
+          label="Limite mensal da classe"
+          description="Soma todas as categorias da classe. É independente dos limites de cada categoria."
+          target={{ kind: 'CLASS_LIMIT', expenseClass: editing.expenseClass }}
+          currentCents={budgets.classLimits[editing.expenseClass]}
+          onClose={() => setEditing(null)}
+          onSaved={(next) => {
+            setBudgets(next);
+            setEditing(null);
+          }}
+        />
+      )}
       {editing?.mode === 'edit' && (
         <CategorySheet
           type={editing.category.type}
           category={editing.category}
+          currentLimit={limitOf.get(editing.category.id) ?? null}
           siblings={sameType(editing.category).filter((c) => c.id !== editing.category.id)}
           onClose={() => setEditing(null)}
           onSaved={closeAndReload}
@@ -150,23 +204,38 @@ type SheetProps = {
   type: CategoryType;
   category?: Category;
   siblings?: Category[];
+  /** Limite em vigor no período atual (RN-29), se houver. */
+  currentLimit?: number | null;
   onClose: () => void;
   onSaved: () => void;
 };
 
-function CategorySheet({ type, category, siblings = [], onClose, onSaved }: SheetProps) {
+function CategorySheet({ type, category, siblings = [], currentLimit = null, onClose, onSaved }: SheetProps) {
   const [name, setName] = useState(category?.name ?? '');
   const [color, setColor] = useState<CategoryColor>(category?.color ?? 'blue');
   // RN-14a: numa categoria nova, nenhuma classe vem marcada.
   const [expenseClass, setExpenseClass] = useState<ExpenseClass | null>(category?.expenseClass ?? null);
+  const [limit, setLimit] = useState(currentLimit ?? 0);
   const [deleting, setDeleting] = useState(false);
+  // RN-17: virar Investimento remove o limite; a tela avisa antes de salvar.
+  const losesLimit = currentLimit !== null && expenseClass === 'INVESTMENT';
 
   const save = useSubmit(async () => {
+    let id: number;
     if (category) {
       const changes = type === 'EXPENSE' && expenseClass ? { name, color, expenseClass } : { name, color };
       await api(`/categories/${category.id}`, { method: 'PATCH', body: JSON.stringify(changes) });
+      id = category.id;
     } else {
-      await api('/categories', { method: 'POST', body: JSON.stringify({ type, name, color, expenseClass }) });
+      const created = await api<{ category: Category }>('/categories', {
+        method: 'POST',
+        body: JSON.stringify({ type, name, color, expenseClass }),
+      });
+      id = created.category.id;
+    }
+    // RN-29: o limite (opcional) é gravado depois da categoria; R$ 0,00 quer dizer sem limite.
+    if (isLimited(expenseClass) && limit !== (currentLimit ?? 0)) {
+      await saveBudget({ kind: 'CATEGORY_LIMIT', categoryId: id }, limit > 0 ? limit : null);
     }
     onSaved();
   });
@@ -176,7 +245,13 @@ function CategorySheet({ type, category, siblings = [], onClose, onSaved }: Shee
   if (category && deleting) {
     return (
       <Sheet title="Excluir categoria" onClose={onClose}>
-        <DeleteCategory category={category} siblings={siblings} onCancel={() => setDeleting(false)} onDeleted={onSaved} />
+        <DeleteCategory
+          category={category}
+          siblings={siblings}
+          hasLimit={currentLimit !== null}
+          onCancel={() => setDeleting(false)}
+          onDeleted={onSaved}
+        />
       </Sheet>
     );
   }
@@ -215,6 +290,19 @@ function CategorySheet({ type, category, siblings = [], onClose, onSaved }: Shee
             {save.fieldErrors.expenseClass && <span className="field__error">{save.fieldErrors.expenseClass}</span>}
           </fieldset>
         )}
+        {isLimited(expenseClass) && (
+          <div className="form__group">
+            <MoneyInput label="Limite mensal (opcional)" cents={limit} onChange={setLimit} error={save.fieldErrors.amountCents} />
+            <p className="muted small">
+              Deixe R$ 0,00 para não ter limite. Vale a partir deste mês; os meses anteriores continuam com o valor que tinham.
+            </p>
+          </div>
+        )}
+        {losesLimit && (
+          <Alert kind="warning">
+            Investimento não tem limite, só meta. Ao salvar, o limite de {formatMoney(currentLimit!)} desta categoria será removido.
+          </Alert>
+        )}
         <fieldset className="palette">
           <legend>Cor</legend>
           <div className="palette__grid">
@@ -252,11 +340,13 @@ function CategorySheet({ type, category, siblings = [], onClose, onSaved }: Shee
 function DeleteCategory({
   category,
   siblings,
+  hasLimit,
   onCancel,
   onDeleted,
 }: {
   category: Category;
   siblings: Category[];
+  hasLimit: boolean;
   onCancel: () => void;
   onDeleted: () => void;
 }) {
@@ -314,6 +404,7 @@ function DeleteCategory({
           Excluir a categoria <strong>{category.name}</strong>? Essa ação não pode ser desfeita.
         </p>
       )}
+      {hasLimit && <p className="muted small">O limite de orçamento desta categoria também será removido.</p>}
       <button
         className="button button--danger"
         type="submit"

@@ -18,6 +18,7 @@ export function SettingsPage({ user }: { user: User }) {
       <div className="settings">
         <ProfileSection user={user} />
         <CategoriesSection />
+        <WarningSection user={user} />
         <PeriodSection user={user} />
         <InitialBalanceSection user={user} />
         <ThemeSection user={user} />
@@ -45,6 +46,50 @@ function CategoriesSection() {
       <Link href={CATEGORIES_PATH} className="button button--ghost settings__link">
         Gerenciar categorias
       </Link>
+    </Section>
+  );
+}
+
+/** RN-32a: nível de atenção do orçamento. O estouro é sempre ao passar de 100%. */
+function WarningSection({ user }: { user: User }) {
+  const saveUser = useSaveUser();
+  const [percent, setPercent] = useState(String(user.warningPercent));
+  const [saved, setSaved] = useState(false);
+  const value = Number(percent);
+  const valid = percent.trim() !== '' && Number.isInteger(value) && value >= 0 && value <= 100;
+  const save = useSubmit(async () => {
+    setSaved(false);
+    await saveUser('/settings/preferences', { warningPercent: value });
+    setSaved(true);
+  });
+
+  return (
+    <Section
+      title="Alertas do orçamento"
+      description="Quando uma categoria ou classe com limite chegar a esta porcentagem do limite, o painel mostra o aviso de atenção. Passar de 100% é sempre estouro."
+    >
+      {saved && <Alert kind="success">Nível de atenção atualizado.</Alert>}
+      {save.error && <Alert kind="error">{save.error}</Alert>}
+      <form className="form" onSubmit={save.onSubmit} noValidate>
+        <Field
+          label="Avisar ao atingir (%)"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={100}
+          step={1}
+          value={percent}
+          onChange={(e) => {
+            setPercent(e.target.value);
+            setSaved(false);
+          }}
+          error={save.fieldErrors.warningPercent ?? (valid ? undefined : 'Escolha um número inteiro de 0 a 100.')}
+          hint={valid ? `Com limite de R$ 1.000,00, o aviso aparece a partir de R$ ${(value * 10).toLocaleString('pt-BR')},00.` : undefined}
+        />
+        <button className="button" type="submit" disabled={save.submitting || !valid || value === user.warningPercent}>
+          {save.submitting ? 'Salvando…' : 'Salvar nível de atenção'}
+        </button>
+      </form>
     </Section>
   );
 }
