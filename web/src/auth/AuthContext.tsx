@@ -1,7 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
+import { applyTheme, type Theme } from '../lib/theme';
+import type { PeriodNaming } from '../../../shared/period';
 
-export type User = { id: number; name: string; email: string; emailVerified: boolean };
+export type User = {
+  id: number;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  monthStartDay: number;
+  periodNaming: PeriodNaming;
+  theme: Theme;
+};
 
 type AuthState = {
   /** `undefined` enquanto a sessão está sendo verificada. */
@@ -11,12 +21,19 @@ type AuthState = {
   logout: () => Promise<void>;
   /** Busca de novo o usuário da sessão (ex.: depois de confirmar o e-mail). */
   refresh: () => Promise<void>;
+  /** Atualiza o usuário com a resposta da API (ex.: depois de salvar as configurações). */
+  setUser: (user: User | null) => void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
+
+  // O tema salvo na conta vale em todos os aparelhos (RN-45).
+  useEffect(() => {
+    if (user) applyTheme(user.theme);
+  }, [user]);
 
   const refresh = useCallback(async () => {
     await api<{ user: User }>('/auth/me')
@@ -46,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, login, register, logout, refresh }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, login, register, logout, refresh, setUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthState {

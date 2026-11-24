@@ -16,4 +16,23 @@ describe('GET /api/health', () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe('NOT_FOUND');
   });
+
+  it('responde 400 para JSON malformado, e não erro do servidor', async () => {
+    const response = await request(createApp())
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{oops');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('INVALID_JSON');
+  });
+
+  it('responde 413 para corpo grande demais', async () => {
+    const response = await request(createApp())
+      .post('/api/auth/login')
+      .send({ email: 'a@b.com', password: 'x'.repeat(200_000) });
+
+    expect(response.status).toBe(413);
+    expect(response.body.error.code).toBe('PAYLOAD_TOO_LARGE');
+  });
 });

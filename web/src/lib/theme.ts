@@ -1,0 +1,24 @@
+export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM';
+
+const STORAGE_KEY = 'pp-theme';
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+let current: Theme = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? 'SYSTEM';
+
+function paint() {
+  const dark = current === 'DARK' || (current === 'SYSTEM' && darkQuery.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#13201f' : '#0f766e');
+}
+
+/**
+ * Aplica o tema (RN-45). No automático, acompanha o tema do aparelho mesmo com o app aberto.
+ * A última escolha fica guardada no navegador para a tela não piscar ao abrir.
+ */
+export function applyTheme(theme: Theme) {
+  current = theme;
+  localStorage.setItem(STORAGE_KEY, theme);
+  paint();
+}
+
+darkQuery.addEventListener('change', paint);
+paint();

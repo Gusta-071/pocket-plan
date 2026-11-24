@@ -1,12 +1,16 @@
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
+import { AppLayout } from './components/AppLayout';
 import { navigate, useLocation } from './lib/router';
+import { CategoriesPage } from './pages/CategoriesPage';
 import { ConfirmEmailPage } from './pages/ConfirmEmailPage';
+import { EntriesPage } from './pages/EntriesPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { VerifyEmailPendingPage } from './pages/VerifyEmailPendingPage';
 
 /** Telas de entrada, abertas a quem não está logado. */
@@ -46,7 +50,17 @@ function Routes() {
 
   switch (path) {
     case '/login':
-      return <LoginPage notice={query.has('senha-redefinida') ? 'Senha redefinida. Entre com a nova senha.' : undefined} />;
+      return (
+        <LoginPage
+          notice={
+            query.has('senha-redefinida')
+              ? 'Senha redefinida. Entre com a nova senha.'
+              : query.has('conta-excluida')
+                ? 'Sua conta e todos os seus dados foram excluídos.'
+                : undefined
+          }
+        />
+      );
     case '/cadastro':
       return <RegisterPage />;
     case '/esqueci-senha':
@@ -55,9 +69,22 @@ function Routes() {
       return <ConfirmEmailPage token={query.get('token')} />;
     case '/redefinir-senha':
       return <ResetPasswordPage token={query.get('token')} />;
-    default:
-      return user ? <HomePage user={user} /> : null;
   }
+
+  if (!user) return null;
+  return (
+    <AppLayout user={user}>
+      {path === '/lancamentos' ? (
+        <EntriesPage user={user} />
+      ) : path === '/categorias' ? (
+        <CategoriesPage />
+      ) : path === '/configuracoes' ? (
+        <SettingsPage user={user} />
+      ) : (
+        <HomePage user={user} />
+      )}
+    </AppLayout>
+  );
 }
 
 export function App() {

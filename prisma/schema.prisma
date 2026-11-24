@@ -21,6 +21,8 @@ model User {
   monthStartDay Int     @default(1)
   /// AUTO | START_MONTH | END_MONTH (RN-12).
   periodNaming String   @default("AUTO")
+  /// LIGHT | DARK | SYSTEM (RN-45).
+  theme        String   @default("SYSTEM")
   /// Preenchido quando o usuário confirma o e-mail (RN-09f, RN-09i).
   emailVerifiedAt DateTime?
   createdAt    DateTime @default(now())
@@ -28,6 +30,8 @@ model User {
   sessions                Session[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  categories              Category[]
+  entries                 Entry[]
 }
 
 /// Código de confirmação de e-mail: só o hash, 24 horas, uso único (RN-09f).
@@ -77,4 +81,46 @@ model AuthAttempt {
   createdAt DateTime @default(now())
 
   @@index([kind, email, createdAt])
+}
+
+/// Categoria de receita ou despesa, de um único nível (RN-14 a RN-18a).
+model Category {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// INCOME | EXPENSE. Não muda depois de criada (RN-17).
+  type      String
+  name      String
+  /// Nome sem espaços nas pontas e em minúsculas: garante a unicidade de RN-16.
+  nameKey   String
+  /// Chave da paleta fixa (RN-16a), ex.: "green", "blue".
+  color     String
+  createdAt DateTime @default(now())
+  entries   Entry[]
+
+  @@unique([userId, type, nameKey])
+  @@index([userId])
+}
+
+/// Lançamento de receita ou despesa (RN-19 a RN-25d).
+/// A situação (previsto/realizado) não é armazenada: é calculada pela data (RN-22).
+model Entry {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// INCOME | EXPENSE, igual ao tipo da categoria (RN-21).
+  type        String
+  /// Valor em centavos, maior que zero (RN-01, RN-20).
+  amountCents Int
+  /// Data sem horário, "AAAA-MM-DD" (RN-03). O formato ordena corretamente como texto.
+  date        String
+  categoryId  Int
+  /// Restrict: uma categoria com lançamentos só sai movendo-os antes (RN-18).
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([categoryId])
 }

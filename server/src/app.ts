@@ -1,7 +1,10 @@
 import express from 'express';
 import { errorHandler, notFoundHandler } from './lib/errors.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
+import { categoryRoutes } from './modules/categories/categories.routes.js';
+import { entryRoutes } from './modules/entries/entries.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { settingsRoutes } from './modules/settings/settings.routes.js';
 
 export function createApp() {
   const app = express();
@@ -11,6 +14,9 @@ export function createApp() {
 
   app.use('/api/health', healthRoutes);
   app.use('/api/auth', authRoutes);
+  app.use('/api/categories', categoryRoutes);
+  app.use('/api/entries', entryRoutes);
+  app.use('/api/settings', settingsRoutes);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);
