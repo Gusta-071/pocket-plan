@@ -7,12 +7,19 @@ import {
   MAX_CATEGORIES_PER_TYPE,
   type CategoryColor,
   type CategoryType,
+  type ExpenseClass,
 } from './categories.constants.js';
 import type { createCategorySchema, updateCategorySchema } from './categories.schemas.js';
 
-export type PublicCategory = { id: number; type: CategoryType; name: string; color: CategoryColor };
+export type PublicCategory = {
+  id: number;
+  type: CategoryType;
+  name: string;
+  color: CategoryColor;
+  expenseClass: ExpenseClass | null;
+};
 
-type CategoryRow = { id: number; type: string; name: string; color: string };
+type CategoryRow = { id: number; type: string; name: string; color: string; expenseClass: string | null };
 
 function toPublic(category: CategoryRow): PublicCategory {
   return {
@@ -20,6 +27,7 @@ function toPublic(category: CategoryRow): PublicCategory {
     type: category.type as CategoryType,
     name: category.name,
     color: category.color as CategoryColor,
+    expenseClass: category.expenseClass as ExpenseClass | null,
   };
 }
 
@@ -48,7 +56,7 @@ export async function listCategories(userId: number): Promise<PublicCategory[]> 
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
 }
 
-/** RN-14, RN-16, RN-16a, RN-16b. */
+/** RN-14, RN-14a, RN-16, RN-16a, RN-16b. */
 export async function createCategory(userId: number, input: z.infer<typeof createCategorySchema>) {
   const count = await prisma.category.count({ where: { userId, type: input.type } });
   if (count >= MAX_CATEGORIES_PER_TYPE) {
@@ -60,7 +68,14 @@ export async function createCategory(userId: number, input: z.infer<typeof creat
   }
   try {
     const category = await prisma.category.create({
-      data: { userId, type: input.type, name: input.name, nameKey: categoryNameKey(input.name), color: input.color },
+      data: {
+        userId,
+        type: input.type,
+        name: input.name,
+        nameKey: categoryNameKey(input.name),
+        color: input.color,
+        expenseClass: input.expenseClass,
+      },
     });
     return toPublic(category);
   } catch (error) {
@@ -69,15 +84,21 @@ export async function createCategory(userId: number, input: z.infer<typeof creat
   }
 }
 
-/** RN-16, RN-17: altera nome e/ou cor; o tipo nunca muda. */
+/** RN-16, RN-17: altera nome, cor e/ou classe; o tipo nunca muda. */
 export async function updateCategory(userId: number, id: number, input: z.infer<typeof updateCategorySchema>) {
-  await findOwned(userId, id);
+  const current = await findOwned(userId, id);
+  if (input.expenseClass !== undefined && current.type !== 'EXPENSE') {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Categorias de receita não têm classe.', [
+      { path: 'expenseClass', message: 'Categorias de receita não têm classe.' },
+    ]);
+  }
   try {
     const category = await prisma.category.update({
       where: { id },
       data: {
         ...(input.name !== undefined && { name: input.name, nameKey: categoryNameKey(input.name) }),
         ...(input.color !== undefined && { color: input.color }),
+        ...(input.expenseClass !== undefined && { expenseClass: input.expenseClass }),
       },
     });
     return toPublic(category);

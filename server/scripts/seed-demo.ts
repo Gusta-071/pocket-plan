@@ -63,6 +63,10 @@ function monthEntries(offset: number): Draft[] {
     entries.push(expense('Compras', between(80, 400), between(1, 28), pick(['Roupas', 'Presente', 'Eletrônicos', 'Casa e decoração'])));
   }
   entries.push(expense('Saúde', between(30, 90), between(1, 28), 'Farmácia'));
+
+  // Aportes (RN-28): todo mês para a reserva; nos meses de freelance, também em investimentos.
+  entries.push(expense('Reserva de emergência', 500, 6, 'Aporte na reserva'));
+  if ([-3, -1, 1].includes(offset)) entries.push(expense('Investimentos', pick([300, 500]), 20, 'Tesouro Direto'));
   return entries;
 }
 

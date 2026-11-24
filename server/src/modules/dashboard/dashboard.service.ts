@@ -1,5 +1,6 @@
 import { addDays, daysBetween, periodContaining, shiftPeriod, today, type PeriodNaming } from '../../../../shared/period.js';
 import { prisma } from '../../lib/prisma.js';
+import { EXPENSE_CLASSES } from '../categories/categories.constants.js';
 
 /** Quantos períodos aparecem no gráfico de evolução, contando o escolhido. */
 export const HISTORY_LENGTH = 6;
@@ -66,6 +67,23 @@ export async function getDashboard(userId: number, date: string) {
   const previousLimit = sameDay < previous.end ? sameDay : previous.end;
 
   const categories = await prisma.category.findMany({ where: { userId, type: 'EXPENSE' } });
+  const classOf = new Map(categories.map((c) => [c.id, c.expenseClass]));
+
+  // RN-14a, RN-28, RN-48, RN-49: gastos fixos, variáveis e investido, com a comparação.
+  const byClass = EXPENSE_CLASSES.map((expenseClass) => {
+    const ofClass = (r: Row) => isExpense(r) && classOf.get(r.categoryId) === expenseClass;
+    return {
+      expenseClass,
+      totalCents: sum(inPeriod, ofClass),
+      paidCents: sum(inPeriod, (r) => ofClass(r) && r.paid),
+      pendingCents: sum(inPeriod, (r) => ofClass(r) && !r.paid),
+      comparison: {
+        currentCents: sum(inPeriod, (r) => ofClass(r) && r.date <= currentLimit),
+        previousCents: sum(rows, (r) => ofClass(r) && r.date >= previous.start && r.date <= previousLimit),
+      },
+    };
+  });
+
   const byCategory = categories
     .map((category) => {
       const ofCategory = (r: Row) => isExpense(r) && r.categoryId === category.id;
@@ -73,6 +91,7 @@ export async function getDashboard(userId: number, date: string) {
         categoryId: category.id,
         name: category.name,
         color: category.color,
+        expenseClass: category.expenseClass,
         // O gasto do período considera pagos e pendentes: mede quanto se gastou (RN-49).
         totalCents: sum(inPeriod, ofCategory),
         pendingCents: sum(inPeriod, (r) => ofCategory(r) && !r.paid),
@@ -121,6 +140,7 @@ export async function getDashboard(userId: number, date: string) {
     totals: { ...totals, result, projected },
     balance: { initialCents: user.initialBalanceCents, previousCents: previousBalance, currentCents: balance, projectedCents: projectedBalance },
     expenseComparison,
+    byClass,
     byCategory,
     evolution,
     overdue: {

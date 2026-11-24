@@ -91,6 +91,45 @@ describe('resumo do período (RN-26 a RN-28a, RN-48)', () => {
   });
 });
 
+describe('gastos por classe (RN-14a, RN-28, RN-48)', () => {
+  it('separa fixos, variáveis e investido, e o aporte entra no resultado', async () => {
+    const housing = await categoryId('Moradia');
+    const reserve = await categoryId('Reserva de emergência');
+    await add('INCOME', 10000, '2026-11-05', true);
+    await add('EXPENSE', 3000, '2026-11-06', true, housing);
+    await add('EXPENSE', 800, '2026-11-07', true, food);
+    await add('EXPENSE', 200, '2026-11-26', false, leisure);
+    await add('EXPENSE', 1500, '2026-11-08', true, reserve);
+
+    const { byClass, totals, byCategory } = (await dashboard(TODAY)).body;
+    expect(byClass).toEqual([
+      expect.objectContaining({ expenseClass: 'FIXED', totalCents: 3000, paidCents: 3000, pendingCents: 0 }),
+      expect.objectContaining({ expenseClass: 'VARIABLE', totalCents: 1000, paidCents: 800, pendingCents: 200 }),
+      expect.objectContaining({ expenseClass: 'INVESTMENT', totalCents: 1500, paidCents: 1500, pendingCents: 0 }),
+    ]);
+    // O aporte é dinheiro que saiu: entra no resultado (RN-26, RN-28).
+    expect(totals.result).toBe(10000 - 3000 - 800 - 1500);
+    expect(byCategory.find((c: { name: string }) => c.name === 'Reserva de emergência').expenseClass).toBe('INVESTMENT');
+  });
+
+  it('trocar a classe da categoria muda os totais, inclusive de períodos passados (RN-17)', async () => {
+    await add('EXPENSE', 700, '2026-10-15', true, leisure);
+    await request(app).patch(`/api/categories/${leisure}`).set('Cookie', cookie).send({ expenseClass: 'FIXED' }).expect(200);
+
+    const { byClass } = (await dashboard('2026-10-15')).body;
+    expect(byClass[0]).toMatchObject({ expenseClass: 'FIXED', totalCents: 700 });
+    expect(byClass[1]).toMatchObject({ expenseClass: 'VARIABLE', totalCents: 0 });
+  });
+
+  it('compara cada classe com o período anterior (RN-49)', async () => {
+    await add('EXPENSE', 400, '2026-10-03', true, food);
+    await add('EXPENSE', 600, '2026-11-03', true, food);
+
+    const variable = (await dashboard(TODAY)).body.byClass[1];
+    expect(variable.comparison).toEqual({ currentCents: 600, previousCents: 400 });
+  });
+});
+
 describe('comparação com o período anterior (RN-49)', () => {
   it('no período atual, compara com o anterior até o mesmo dia', async () => {
     await add('EXPENSE', 200, '2026-10-05', true);

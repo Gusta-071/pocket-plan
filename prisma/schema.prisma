@@ -12,22 +12,22 @@ datasource db {
 
 /// Conta de usuário (RN-05 a RN-09).
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
+  id                  Int       @id @default(autoincrement())
+  name                String
   /// Normalizado: sem espaços nas pontas e em minúsculas (RN-06).
-  email        String   @unique
-  passwordHash String
+  email               String    @unique
+  passwordHash        String
   /// Dia de início do mês financeiro, de 1 a 28 (RN-10).
-  monthStartDay Int     @default(1)
+  monthStartDay       Int       @default(1)
   /// AUTO | START_MONTH | END_MONTH (RN-12).
-  periodNaming String   @default("AUTO")
+  periodNaming        String    @default("AUTO")
   /// Ponto de partida do saldo acumulado, em centavos; pode ser negativo (RN-28a, RN-44a).
-  initialBalanceCents Int @default(0)
+  initialBalanceCents Int       @default(0)
   /// LIGHT | DARK | SYSTEM (RN-45).
-  theme        String   @default("SYSTEM")
+  theme               String    @default("SYSTEM")
   /// Preenchido quando o usuário confirma o e-mail (RN-09f, RN-09i).
-  emailVerifiedAt DateTime?
-  createdAt    DateTime @default(now())
+  emailVerifiedAt     DateTime?
+  createdAt           DateTime  @default(now())
 
   sessions                Session[]
   passwordResetTokens     PasswordResetToken[]
@@ -87,18 +87,20 @@ model AuthAttempt {
 
 /// Categoria de receita ou despesa, de um único nível (RN-14 a RN-18a).
 model Category {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// INCOME | EXPENSE. Não muda depois de criada (RN-17).
-  type      String
-  name      String
+  type         String
+  name         String
   /// Nome sem espaços nas pontas e em minúsculas: garante a unicidade de RN-16.
-  nameKey   String
+  nameKey      String
   /// Chave da paleta fixa (RN-16a), ex.: "green", "blue".
-  color     String
-  createdAt DateTime @default(now())
-  entries   Entry[]
+  color        String
+  /// Classe da despesa (RN-14a): FIXED | VARIABLE | INVESTMENT. Nula nas categorias de receita.
+  expenseClass String?
+  createdAt    DateTime @default(now())
+  entries      Entry[]
 
   @@unique([userId, type, nameKey])
   @@index([userId])

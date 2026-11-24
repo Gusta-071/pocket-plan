@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { addMonths, formatDate, maxEntryDate, MIN_ENTRY_DATE, today } from '../../../shared/period';
 import { api } from '../lib/api';
-import { TYPE_LABELS, type Category, type CategoryType } from '../lib/categories';
+import { EXPENSE_CLASS_LABELS, EXPENSE_CLASSES, TYPE_LABELS, type Category, type CategoryType } from '../lib/categories';
 import { formatMoney } from '../lib/money';
 import { useSubmit } from '../lib/useSubmit';
 import { Alert, Field } from './Form';
+import { ManageCategoriesLink } from './ManageCategoriesLink';
 import { MoneyInput } from './MoneyInput';
 import { Sheet } from './Sheet';
 
@@ -177,18 +178,17 @@ function FormSheet({
         </label>
 
         <div className="field">
-          <label htmlFor="entry-category">Categoria</label>
+          <div className="field__label-row">
+            <label htmlFor="entry-category">Categoria</label>
+            <ManageCategoriesLink />
+          </div>
           <select
             id="entry-category"
             value={draft.categoryId}
             onChange={(e) => setDraft((d) => ({ ...d, categoryId: Number(e.target.value) }))}
             aria-invalid={save.fieldErrors.categoryId ? true : undefined}
           >
-            {options.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
+            <CategoryOptions categories={options} />
           </select>
           {save.fieldErrors.categoryId && <span className="field__error">{save.fieldErrors.categoryId}</span>}
         </div>
@@ -286,5 +286,27 @@ function DeleteSheet({ entry, onBack, onClose, onDone }: { entry: Entry; onBack:
         </button>
       </form>
     </Sheet>
+  );
+}
+
+/** Opções de categoria; as de despesa ficam agrupadas pela classe (RN-14a). */
+function CategoryOptions({ categories }: { categories: Category[] }) {
+  const option = (category: Category) => (
+    <option key={category.id} value={category.id}>
+      {category.name}
+    </option>
+  );
+  if (categories.every((c) => c.expenseClass === null)) return <>{categories.map(option)}</>;
+  return (
+    <>
+      {EXPENSE_CLASSES.map((expenseClass) => {
+        const ofClass = categories.filter((c) => c.expenseClass === expenseClass);
+        return ofClass.length === 0 ? null : (
+          <optgroup key={expenseClass} label={EXPENSE_CLASS_LABELS[expenseClass].plural}>
+            {ofClass.map(option)}
+          </optgroup>
+        );
+      })}
+    </>
   );
 }

@@ -2,7 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Field } from '../components/Form';
 import { Sheet } from '../components/Sheet';
 import { api, ApiError } from '../lib/api';
-import { CATEGORY_COLORS, TYPE_LABELS, type Category, type CategoryColor, type CategoryType } from '../lib/categories';
+import {
+  CATEGORY_COLORS,
+  EXPENSE_CLASS_LABELS,
+  EXPENSE_CLASSES,
+  TYPE_LABELS,
+  type Category,
+  type CategoryColor,
+  type CategoryType,
+  type ExpenseClass,
+} from '../lib/categories';
+import { Link } from '../lib/router';
 import { useSubmit } from '../lib/useSubmit';
 
 const MAX_PER_TYPE = 30; // RN-16b
@@ -37,8 +47,20 @@ export function CategoriesPage() {
     void load();
   }
 
+  // As despesas aparecem agrupadas pela classe (RN-14a).
+  const groups =
+    type === 'EXPENSE'
+      ? EXPENSE_CLASSES.map((expenseClass) => ({
+          title: EXPENSE_CLASS_LABELS[expenseClass].plural,
+          items: visible.filter((c) => c.expenseClass === expenseClass),
+        })).filter((group) => group.items.length > 0)
+      : [{ title: null, items: visible }];
+
   return (
     <>
+      <Link href="/configuracoes" className="back-link">
+        ‹ Ajustes
+      </Link>
       <div className="page-header">
         <h1>Categorias</h1>
         <button
@@ -83,20 +105,25 @@ export function CategoriesPage() {
 
       {categories && (
         <>
-          <ul className="list" aria-label={TYPE_LABELS[type].plural}>
-            {visible.map((category) => (
-              <li key={category.id}>
-                <button type="button" className="list__item" onClick={() => setEditing({ mode: 'edit', category })}>
-                  <span className="color-dot" style={{ background: CATEGORY_COLORS[category.color].hex }} aria-hidden="true" />
-                  <span className="list__label">{category.name}</span>
-                  <span className="list__action" aria-hidden="true">
-                    Editar
-                  </span>
-                  <span className="visually-hidden">, editar</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {groups.map((group) => (
+            <section key={group.title ?? 'all'}>
+              {group.title && <h2 className="class-group__title">{group.title}</h2>}
+              <ul className="list" aria-label={group.title ?? TYPE_LABELS[type].plural}>
+                {group.items.map((category) => (
+                  <li key={category.id}>
+                    <button type="button" className="list__item" onClick={() => setEditing({ mode: 'edit', category })}>
+                      <span className="color-dot" style={{ background: CATEGORY_COLORS[category.color].hex }} aria-hidden="true" />
+                      <span className="list__label">{category.name}</span>
+                      <span className="list__action" aria-hidden="true">
+                        Editar
+                      </span>
+                      <span className="visually-hidden">, editar</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
           <p className="muted small">
             {visible.length} de {MAX_PER_TYPE} categorias de {TYPE_LABELS[type].singular}.
           </p>
@@ -130,13 +157,16 @@ type SheetProps = {
 function CategorySheet({ type, category, siblings = [], onClose, onSaved }: SheetProps) {
   const [name, setName] = useState(category?.name ?? '');
   const [color, setColor] = useState<CategoryColor>(category?.color ?? 'blue');
+  // RN-14a: numa categoria nova, nenhuma classe vem marcada.
+  const [expenseClass, setExpenseClass] = useState<ExpenseClass | null>(category?.expenseClass ?? null);
   const [deleting, setDeleting] = useState(false);
 
   const save = useSubmit(async () => {
     if (category) {
-      await api(`/categories/${category.id}`, { method: 'PATCH', body: JSON.stringify({ name, color }) });
+      const changes = type === 'EXPENSE' && expenseClass ? { name, color, expenseClass } : { name, color };
+      await api(`/categories/${category.id}`, { method: 'PATCH', body: JSON.stringify(changes) });
     } else {
-      await api('/categories', { method: 'POST', body: JSON.stringify({ type, name, color }) });
+      await api('/categories', { method: 'POST', body: JSON.stringify({ type, name, color, expenseClass }) });
     }
     onSaved();
   });
@@ -163,6 +193,28 @@ function CategorySheet({ type, category, siblings = [], onClose, onSaved }: Shee
           onChange={(e) => setName(e.target.value)}
           error={save.fieldErrors.name}
         />
+        {type === 'EXPENSE' && (
+          <fieldset className="class-picker" aria-invalid={save.fieldErrors.expenseClass ? true : undefined}>
+            <legend>Classe</legend>
+            <div className="class-picker__options">
+              {EXPENSE_CLASSES.map((option) => (
+                <label key={option} className="class-picker__option">
+                  <input
+                    type="radio"
+                    name="expenseClass"
+                    value={option}
+                    checked={expenseClass === option}
+                    onChange={() => setExpenseClass(option)}
+                    className="visually-hidden"
+                  />
+                  <span className="class-picker__label">{EXPENSE_CLASS_LABELS[option].label}</span>
+                  <span className="class-picker__hint">{EXPENSE_CLASS_LABELS[option].hint}</span>
+                </label>
+              ))}
+            </div>
+            {save.fieldErrors.expenseClass && <span className="field__error">{save.fieldErrors.expenseClass}</span>}
+          </fieldset>
+        )}
         <fieldset className="palette">
           <legend>Cor</legend>
           <div className="palette__grid">

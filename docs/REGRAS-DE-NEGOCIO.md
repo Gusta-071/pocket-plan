@@ -9,10 +9,11 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão implementadas.
 
 - **Situação por check (RN-22, implementada).** Pago/recebido passa a ser marcado pelo usuário, e não mais calculado pela data. Uma conta vencida e não marcada fica **atrasada** (RN-22a).
-- **Classe da despesa (RN-14a).** Cada categoria de despesa passa a ser **Fixa**, **Variável** ou **Investimento**. Entra a categoria padrão "Investimentos" (RN-15).
+- **Classe da despesa (RN-14a).** Cada categoria de despesa passa a ser **Fixa**, **Variável** ou **Investimento**, escolhida pelo usuário e obrigatória. As categorias padrão vêm com uma classe sugerida, e entram "Reserva de emergência" e "Investimentos" (RN-15).
 - **Investimentos simplificados (RN-28).** Aportes viram despesas da classe Investimento. A carteira com rendimento (RN-35 a RN-41) foi adiada.
 - **Saldo acumulado (RN-28a, RN-44a, implementado).** O resultado de cada período passa para o seguinte, a partir de um saldo inicial.
-- **Orçamento por classe e meta de investimento (RN-29a, RN-29b).**
+- **Orçamento por classe e meta de investimento (RN-29a, RN-29b), com nível de atenção configurável (RN-32a).**
+- **Categorias e nível de atenção nos ajustes; metas no painel (RN-47a).**
 - **Novas seções:** Painel do período (RN-48, RN-49; implementado em parte), Contas do mês (RN-50), Cartões de crédito (RN-51 a RN-57) e Despesas compartilhadas (RN-58 a RN-65).
 - **Assistente com IA (RN-66, implementado).** Lançar receitas e despesas conversando, sempre com confirmação.
 - **Ajustes ligados a essas seções:** RN-04, RN-09, RN-17, RN-18, RN-24, RN-25a, RN-25b, RN-26, RN-27, RN-31 e RN-47.
@@ -65,19 +66,20 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 ## Categorias
 
 - **RN-14 — Tipo.** Toda categoria é de **receita** ou de **despesa**. Não há subcategorias: as categorias têm um único nível.
-  - **RN-14a — Classe da despesa.** *(planejada)* Toda categoria de despesa tem uma classe, que agrupa os gastos para orçamento e análise:
+  - **RN-14a — Classe da despesa.** Toda categoria de despesa tem uma classe, que agrupa os gastos para orçamento e análise:
     - **Fixa:** gastos essenciais e recorrentes (moradia, contas, escola);
     - **Variável:** gastos que mudam de um mês para o outro (mercado, lazer, compras);
     - **Investimento:** dinheiro guardado ou aplicado (RN-28).
 
-    Categorias de receita não têm classe.
-- **RN-15 — Categorias padrão.** Toda conta nova recebe as categorias abaixo, cada uma com uma cor predefinida (RN-16a):
+    A classe é **obrigatória** e escolhida pelo usuário: ao criar uma categoria de despesa, nenhuma classe vem marcada, e a categoria só é salva depois que o usuário escolhe uma. Categorias de receita não têm classe.
+- **RN-15 — Categorias padrão.** Toda conta nova recebe as categorias abaixo, cada uma com uma cor predefinida (RN-16a). As de despesa já vêm com uma classe sugerida, que o usuário pode trocar (RN-17):
   - Receitas: Salário, Freelance, Renda extra, Outras receitas.
   - Despesas fixas: Moradia, Saúde, Educação, Contas e serviços, Assinaturas.
   - Despesas variáveis: Alimentação, Transporte, Lazer, Compras, Outras despesas.
-  - Investimento: Investimentos. *(planejada)*
 
-  Contas já existentes recebem a categoria Investimentos e as classes acima quando a regra RN-14a for implantada.
+  - Investimento: Reserva de emergência, Investimentos.
+
+  Nas contas criadas antes da RN-14a, as categorias padrão recebem a classe sugerida acima, e as criadas pelo usuário ficam como Variável, que ele pode trocar. Essas contas também recebem as duas categorias de Investimento; se já existir uma categoria de despesa com o mesmo nome, ela passa para a classe Investimento em vez de ser duplicada.
 - **RN-16 — Nome.** O nome tem de 1 a 40 caracteres e é único entre as categorias do mesmo usuário e do mesmo tipo, sem diferenciar maiúsculas, minúsculas e espaços nas extremidades.
   - **RN-16a — Cor.** Toda categoria tem uma cor, escolhida em uma paleta fixa de 12 cores. A cor ajuda a reconhecer a categoria em listas e gráficos.
   - **RN-16b — Limite.** Cada usuário pode ter no máximo 30 categorias de cada tipo.
@@ -117,7 +119,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 
 - **RN-26 — Resultado realizado.** Resultado = receitas **recebidas** − despesas **pagas** do período financeiro, considerando a data dos lançamentos. Pode ser negativo. Despesas de todas as classes entram no cálculo, inclusive Investimento (RN-28).
 - **RN-27 — Resultado projetado.** Resultado projetado = resultado realizado + receitas pendentes − despesas pendentes do período. É exibido separadamente do resultado realizado.
-- **RN-28 — Investimentos.** *(planejada; substitui "aportes não são despesas")* Um aporte é registrado como despesa em uma categoria da classe Investimento. Ele entra no resultado (RN-26), porque é dinheiro que deixou de estar disponível. Nos totais do período, porém, aparece à parte, como **investido no período**, e não se soma aos gastos fixos e variáveis.
+- **RN-28 — Investimentos.** *(substitui "aportes não são despesas")* Um aporte é registrado como despesa em uma categoria da classe Investimento. Ele entra no resultado (RN-26), porque é dinheiro que deixou de estar disponível. Nos totais do período, porém, aparece à parte, como **investido no período**, e não se soma aos gastos fixos e variáveis.
   - **RN-28a — Saldo acumulado.** O resultado de um período passa para o seguinte:
     - **saldo anterior** de um período = saldo acumulado ao fim do período anterior;
     - **saldo acumulado** = saldo inicial (RN-44a) + receitas recebidas − despesas pagas de todos os lançamentos com data até o fim do período;
@@ -135,7 +137,8 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - consumido = soma das despesas **pagas**;
   - comprometido = soma das despesas **pendentes**, incluindo compras no cartão de faturas ainda não pagas;
   - disponível = limite − consumido − comprometido (pode ser negativo).
-- **RN-32 — Alertas.** Uma categoria ou classe com limite é sinalizada como **atenção** quando consumido + comprometido atinge 80% do limite e como **estourada** quando ultrapassa 100%.
+- **RN-32 — Alertas.** Uma categoria ou classe com limite é sinalizada como **atenção** quando consumido + comprometido atinge o nível de atenção e como **estourada** quando ultrapassa 100% do limite.
+  - **RN-32a — Nível de atenção.** O nível de atenção é definido pelo usuário nas configurações, em porcentagem do limite, de 0% a 100% (padrão 80%). É uma porcentagem, e não um valor, para que um único ajuste sirva a limites de tamanhos diferentes. O estouro é sempre ao passar de 100%, porque significa ter gastado além do limite. Os mesmos níveis valem para o limite dos cartões (RN-55).
 
 ## Meta de economia
 
@@ -171,7 +174,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 
   Exemplo: cartão que fecha dia 25 e vence dia 2. Uma compra em 24/11 entra na fatura que fecha em 25/11 e vence em 02/12. Uma compra em 25/11 vai para a fatura que fecha em 25/12 e vence em 02/01.
 - **RN-54 — Pagar a fatura.** O check fica na fatura, e não em cada compra. Marcar a fatura como paga marca como pagas todas as compras e parcelas dela, e desmarcar volta todas para pendente. Se uma compra for registrada em uma fatura já paga, a fatura volta a ficar pendente, e o sistema avisa.
-- **RN-55 — Limite do cartão.** Utilizado = soma das compras e parcelas de faturas não pagas, inclusive as parcelas futuras. Disponível = limite − utilizado (pode ser negativo). O cartão é sinalizado como **atenção** a partir de 80% do limite utilizado e como **estourado** acima de 100%.
+- **RN-55 — Limite do cartão.** Utilizado = soma das compras e parcelas de faturas não pagas, inclusive as parcelas futuras. Disponível = limite − utilizado (pode ser negativo). O cartão é sinalizado como **atenção** e **estourado** pelos mesmos níveis do orçamento (RN-32a).
 - **RN-56 — Parcelamento.** Uma compra no cartão pode ser parcelada de 2 a 24 vezes. O usuário informa o valor total, e o sistema cria uma parcela por mês:
   - valor de cada parcela = total ÷ número de parcelas, em centavos; os centavos que sobram da divisão vão para a primeira parcela (R$ 100,00 em 3x = R$ 33,34 + R$ 33,33 + R$ 33,33);
   - a parcela *i* tem a data da compra mais *i* − 1 meses (com a regra de último dia de RN-25b) e entra na fatura correspondente a essa data (RN-53);
@@ -243,6 +246,7 @@ Nesta entrega, investimentos são tratados de forma simplificada, como despesas 
 - **RN-47 — Exclusão da conta.** O usuário pode excluir a própria conta, informando a senha atual e confirmando a ação. A exclusão é definitiva: apaga a conta e todos os seus dados (categorias, lançamentos, orçamentos, metas e cartões) e encerra todas as sessões.
   - Se o usuário tem saldo diferente de zero em algum grupo (RN-62), a exclusão é recusada, e o sistema indica quais grupos precisam ser acertados.
   - Com os saldos zerados, o usuário sai de todos os grupos, como em RN-65.
+- **RN-47a — Categorias nos ajustes.** As categorias (RN-14 a RN-18) são gerenciadas dentro das configurações da conta, e não na navegação principal, porque são definidas uma vez e mudam pouco. O mesmo vale para o nível de atenção (RN-32a). Já as metas (RN-29b, RN-33), que o usuário ajusta com frequência, são editadas direto no painel. Para chegar às categorias sem passar pelos ajustes, há um atalho no campo de categoria do lançamento e nos gastos por categoria do painel.
 
 ## Decisões adiadas
 

@@ -1,6 +1,17 @@
 export type CategoryType = 'INCOME' | 'EXPENSE';
 
-export type Category = { id: number; type: CategoryType; name: string; color: CategoryColor };
+export type ExpenseClass = 'FIXED' | 'VARIABLE' | 'INVESTMENT';
+
+export type Category = { id: number; type: CategoryType; name: string; color: CategoryColor; expenseClass: ExpenseClass | null };
+
+/** Classes das despesas (RN-14a), na ordem em que aparecem nas telas. */
+export const EXPENSE_CLASSES: ExpenseClass[] = ['FIXED', 'VARIABLE', 'INVESTMENT'];
+
+export const EXPENSE_CLASS_LABELS: Record<ExpenseClass, { label: string; plural: string; hint: string }> = {
+  FIXED: { label: 'Fixa', plural: 'Fixas', hint: 'Essenciais e recorrentes: moradia, contas, escola.' },
+  VARIABLE: { label: 'Variável', plural: 'Variáveis', hint: 'Mudam de um mês para o outro: mercado, lazer, compras.' },
+  INVESTMENT: { label: 'Investimento', plural: 'Investimentos', hint: 'Dinheiro guardado ou aplicado.' },
+};
 
 /** Paleta fixa de RN-16a: as mesmas chaves do servidor, com a cor exibida e o nome para leitores de tela. */
 export const CATEGORY_COLORS = {

@@ -5,9 +5,10 @@ import { Assistant } from '../components/Assistant';
 import { CheckButton } from '../components/CheckButton';
 import { PAID_LABELS, type Entry } from '../components/EntrySheet';
 import { Alert } from '../components/Form';
+import { ManageCategoriesLink } from '../components/ManageCategoriesLink';
 import { PeriodNav } from '../components/PeriodNav';
 import { api } from '../lib/api';
-import { CATEGORY_COLORS, type Category, type CategoryColor } from '../lib/categories';
+import { CATEGORY_COLORS, EXPENSE_CLASS_LABELS, type Category, type CategoryColor, type ExpenseClass } from '../lib/categories';
 import { formatMoney } from '../lib/money';
 import { Link } from '../lib/router';
 import { useCategories } from '../lib/useCategories';
@@ -18,6 +19,13 @@ type Dashboard = {
   totals: { incomePaid: number; incomePending: number; expensePaid: number; expensePending: number; result: number; projected: number };
   balance: { initialCents: number; previousCents: number; currentCents: number; projectedCents: number };
   expenseComparison: { currentCents: number; previousCents: number };
+  byClass: {
+    expenseClass: ExpenseClass;
+    totalCents: number;
+    paidCents: number;
+    pendingCents: number;
+    comparison: { currentCents: number; previousCents: number };
+  }[];
   byCategory: {
     categoryId: number;
     name: string;
@@ -96,6 +104,7 @@ export function HomePage({ user }: { user: User }) {
           <div className="dashboard">
             <div className="dashboard__area dashboard__area--summary">
               <Summary data={data} />
+              <ClassTotals data={data} />
               {data.overdue.count > 0 && <OverdueAlert overdue={data.overdue} />}
             </div>
             <div className="dashboard__area dashboard__area--categories">
@@ -150,6 +159,32 @@ function Summary({ data }: { data: Dashboard }) {
           {totals.expensePending > 0 && <dd className="stat__sub">A pagar: {formatMoney(totals.expensePending)}</dd>}
         </div>
       </dl>
+    </section>
+  );
+}
+
+/**
+ * Gastos fixos, variáveis e investido no período (RN-14a, RN-28, RN-48), com a comparação (RN-49).
+ * O investido aparece à parte: entra no resultado, mas não é gasto do dia a dia.
+ */
+function ClassTotals({ data }: { data: Dashboard }) {
+  const previousName = monthName(data.previousPeriod.label);
+  return (
+    <section className="card class-totals" aria-label="Gastos por classe">
+      {data.byClass.map((c) => (
+        <div key={c.expenseClass} className={`class-total class-total--${c.expenseClass.toLowerCase()}`}>
+          <span className="class-total__name">
+            {c.expenseClass === 'INVESTMENT' ? 'Investido' : `Gastos ${EXPENSE_CLASS_LABELS[c.expenseClass].plural.toLowerCase()}`}
+          </span>
+          <strong className="class-total__value">{formatMoney(c.totalCents)}</strong>
+          <span className="class-total__sub small muted">
+            {c.pendingCents > 0 ? `${formatMoney(c.pendingCents)} pendente` : 'Tudo acertado'}
+          </span>
+          <span className="class-total__sub small muted">
+            vs. {previousName}: <Delta current={c.comparison.currentCents} previous={c.comparison.previousCents} invert={c.expenseClass === 'INVESTMENT'} />
+          </span>
+        </div>
+      ))}
     </section>
   );
 }
@@ -220,15 +255,19 @@ function dueText(date: string): string {
   return date < now ? `Venceu em ${when}` : `Vence em ${when}`;
 }
 
-/** Variação em relação ao período anterior (RN-49). Gastar mais é ruim: sobe em vermelho, desce em verde. */
-function Delta({ current, previous }: { current: number; previous: number }) {
+/**
+ * Variação em relação ao período anterior (RN-49). Gastar mais é ruim: sobe em vermelho, desce em verde.
+ * Com `invert` (investimentos), subir é bom e fica verde.
+ */
+function Delta({ current, previous, invert = false }: { current: number; previous: number; invert?: boolean }) {
   if (previous === 0) return current > 0 ? <span className="delta">novo</span> : null;
   const change = (current - previous) / previous;
   if (Math.abs(change) < 0.01) return <span className="delta">= igual</span>;
   const up = change > 0;
   const pct = Math.round(Math.abs(change) * 100);
+  const bad = invert ? !up : up;
   return (
-    <span className={`delta ${up ? 'delta--up' : 'delta--down'}`}>
+    <span className={`delta ${bad ? 'delta--up' : 'delta--down'}`}>
       <span aria-hidden="true">{up ? '▲' : '▼'}</span>
       <span className="visually-hidden">{up ? 'mais' : 'menos'}</span> {pct}%
     </span>
@@ -248,7 +287,9 @@ function SpendingByCategory({ data }: { data: Dashboard }) {
   return (
     <section className="dashboard__section">
       <div className="section-header">
-        <h2>Gastos por categoria</h2>
+        <h2 className="section-header__title">
+          Gastos por categoria <ManageCategoriesLink />
+        </h2>
         <span className="small muted">
           Total vs. {previousName}: <Delta current={expenseComparison.currentCents} previous={expenseComparison.previousCents} />
         </span>
