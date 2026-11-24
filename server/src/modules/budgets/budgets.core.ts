@@ -35,10 +35,19 @@ export type BudgetUsage = {
   consumedCents: number;
   committedCents: number;
   availableCents: number;
-  /** Quanto do limite já foi usado (consumido + comprometido), em %, arredondado para baixo. */
+  /** Quanto do limite já foi usado (consumido + comprometido), em %, arredondado. */
   usedPercent: number;
   status: BudgetStatus;
 };
+
+/**
+ * Porcentagem para exibir, arredondada. Nas fronteiras, o arredondamento não pode contradizer
+ * o alerta: um limite estourado nunca aparece como "100%", e um não estourado nunca passa de 100%.
+ */
+function displayPercent(used: number, limit: number, status: BudgetStatus): number {
+  const percent = Math.round((used * 100) / limit);
+  return status === 'EXCEEDED' ? Math.max(percent, 101) : Math.min(percent, 100);
+}
 
 /**
  * RN-31 e RN-32: consumido (pago), comprometido (pendente), disponível e alerta.
@@ -53,7 +62,7 @@ export function budgetUsage(limitCents: number, consumedCents: number, committed
     consumedCents,
     committedCents,
     availableCents: limitCents - used,
-    usedPercent: Math.floor((used * 100) / limitCents),
+    usedPercent: displayPercent(used, limitCents, status),
     status,
   };
 }

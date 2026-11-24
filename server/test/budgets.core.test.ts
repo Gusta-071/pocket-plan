@@ -68,6 +68,13 @@ describe('consumo e alertas (RN-31, RN-32, RN-32a)', () => {
     expect(over.availableCents).toBe(-1);
   });
 
+  it('a porcentagem é arredondada, sem contradizer o alerta nas fronteiras', () => {
+    expect(budgetUsage(80000, 70000, 0, 80).usedPercent).toBe(88); // 87,5%
+    expect(budgetUsage(100000, 99600, 0, 80)).toMatchObject({ usedPercent: 100, status: 'WARNING' }); // 99,6%
+    expect(budgetUsage(100000, 100400, 0, 80)).toMatchObject({ usedPercent: 101, status: 'EXCEEDED' }); // 100,4%
+    expect(budgetUsage(100000, 100001, 0, 80)).toMatchObject({ usedPercent: 101, status: 'EXCEEDED' });
+  });
+
   it('o nível de atenção é do usuário: com 50%, avisa antes', () => {
     expect(budgetUsage(100000, 50000, 0, 50).status).toBe('WARNING');
     expect(budgetUsage(100000, 50000, 0, 100).status).toBe('OK');

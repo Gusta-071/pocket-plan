@@ -94,6 +94,46 @@ describe('definir limites e metas (RN-29, RN-29a, RN-29b, RN-33)', () => {
   });
 });
 
+describe('limite salvo junto com a categoria (RN-29)', () => {
+  const createCategory = (body: object) => request(app).post('/api/categories').set('Cookie', cookie).send(body);
+  const patchCategory = (id: number, body: object) => request(app).patch(`/api/categories/${id}`).set('Cookie', cookie).send(body);
+  const limits = async () => (await get()).body.categoryLimits as { categoryId: number; amountCents: number }[];
+
+  it('cria a categoria já com o limite', async () => {
+    const created = await createCategory({ type: 'EXPENSE', name: 'Pets', color: 'lime', expenseClass: 'VARIABLE', limitCents: 20000 }).expect(201);
+    expect(await limits()).toEqual([{ categoryId: created.body.category.id, amountCents: 20000 }]);
+  });
+
+  it('se a categoria não pode ser salva, o limite também não é: ou os dois, ou nenhum', async () => {
+    const duplicate = await createCategory({ type: 'EXPENSE', name: 'Lazer', color: 'lime', expenseClass: 'VARIABLE', limitCents: 20000 });
+    expect(duplicate.status).toBe(409);
+    expect(await limits()).toEqual([]);
+
+    const renamed = await patchCategory(food, { name: 'Lazer', limitCents: 30000 });
+    expect(renamed.status).toBe(409);
+    expect(await limits()).toEqual([]);
+  });
+
+  it('altera e remove o limite pela edição da categoria', async () => {
+    await patchCategory(food, { limitCents: 50000 }).expect(200);
+    expect(await limits()).toEqual([{ categoryId: food, amountCents: 50000 }]);
+    await patchCategory(food, { limitCents: null }).expect(200);
+    expect(await limits()).toEqual([]);
+  });
+
+  it('recusa limite em receita e em investimento, sem criar a categoria', async () => {
+    const income = await createCategory({ type: 'INCOME', name: 'Bolsa', color: 'lime', limitCents: 100 });
+    expect(income.status).toBe(400);
+    expect(income.body.error.fields[0].path).toBe('limitCents');
+    expect((await createCategory({ type: 'EXPENSE', name: 'Cripto', color: 'lime', expenseClass: 'INVESTMENT', limitCents: 100 })).status).toBe(400);
+    expect((await patchCategory(reserve, { limitCents: 100 })).status).toBe(400);
+
+    const names = (await request(app).get('/api/categories').set('Cookie', cookie)).body.categories.map((c: { name: string }) => c.name);
+    expect(names).not.toContain('Bolsa');
+    expect(names).not.toContain('Cripto');
+  });
+});
+
 describe('vigência (RN-30)', () => {
   it('vale do período atual em diante; alterações não mudam os períodos anteriores', async () => {
     await put({ kind: 'CATEGORY_LIMIT', categoryId: food, amountCents: 80000 }).expect(200);
@@ -155,8 +195,8 @@ describe('orçamento e metas no painel (RN-31, RN-32, RN-34, RN-48)', () => {
     const { budget } = (await dashboard()).body;
     expect(budget.warningPercent).toBe(80);
     expect(budget.categories).toEqual([
-      // 700 de 800 = 87%: passou do nível de atenção padrão (80%), sem estourar.
-      expect.objectContaining({ categoryId: food, consumedCents: 50000, committedCents: 20000, availableCents: 10000, usedPercent: 87, status: 'WARNING' }),
+      // 700 de 800 = 87,5% (exibido como 88%): passou do nível de atenção padrão (80%), sem estourar.
+      expect.objectContaining({ categoryId: food, consumedCents: 50000, committedCents: 20000, availableCents: 10000, usedPercent: 88, status: 'WARNING' }),
     ]);
     expect(budget.classes).toEqual([expect.objectContaining({ expenseClass: 'FIXED', availableCents: -10000, status: 'EXCEEDED' })]);
 
