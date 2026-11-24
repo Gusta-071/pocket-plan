@@ -1,5 +1,7 @@
 # pocket-plan
 
+[![CI](https://github.com/Gusta-071/pocket-plan/actions/workflows/ci.yml/badge.svg)](https://github.com/Gusta-071/pocket-plan/actions/workflows/ci.yml)
+
 Aplicação web de controle e planejamento financeiro pessoal: receitas e despesas, orçamento por categoria, meta de economia e acompanhamento de investimentos.
 
 Projeto da disciplina de Engenharia de Software — UNIFESP, 2º semestre de 2026.
@@ -76,4 +78,6 @@ docs/                 Regras de negócio e documentação
 
 - Branches no padrão `tipo/descricao`: `feature/`, `fix/`, `docs/`, `chore/`, `test/`, `refactor/`.
 - Commits no padrão `tipo: descrição` (ex.: `feat: cadastro de lançamentos`).
+- Cada tarefa começa como uma [issue](https://github.com/Gusta-071/pocket-plan/issues), e o pull request que a resolve cita `Closes #N`.
 - Toda mudança entra na `main` por pull request, com `npm run verify` passando.
+- O CI (GitHub Actions, [.github/workflows/ci.yml](.github/workflows/ci.yml)) roda tipos, testes e build em cada pull request e em cada push na `main`, numa máquina limpa.
