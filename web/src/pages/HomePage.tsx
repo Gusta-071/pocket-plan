@@ -3,8 +3,7 @@ import { formatDate, parseDate, shiftPeriod, today, type Period } from '../../..
 import type { User } from '../auth/AuthContext';
 import { Assistant } from '../components/Assistant';
 import { BudgetAmountSheet } from '../components/BudgetAmountSheet';
-import { CheckButton } from '../components/CheckButton';
-import { PAID_LABELS, type Entry } from '../components/EntrySheet';
+import { BillRow, InvoiceSheet, toggleBill, type BillItem } from '../components/BillRow';
 import { Alert } from '../components/Form';
 import { ManageCategoriesLink, ManagePaymentsLink } from '../components/ManageCategoriesLink';
 import { PeriodNav } from '../components/PeriodNav';
@@ -12,13 +11,25 @@ import { api } from '../lib/api';
 import { STATUS_LABELS, type BudgetStatus } from '../lib/budgets';
 import { CATEGORY_COLORS, EXPENSE_CLASS_LABELS, type Category, type CategoryColor, type ExpenseClass } from '../lib/categories';
 import { formatMoney } from '../lib/money';
-import { Link } from '../lib/router';
+import { usePayments } from '../lib/payments';
+import { Link, navigate } from '../lib/router';
 import { useCategories } from '../lib/useCategories';
 
 type Dashboard = {
   period: Period & { isCurrent: boolean; comparisonDay: number | null };
   previousPeriod: Period;
-  totals: { incomePaid: number; incomePending: number; expensePaid: number; expensePending: number; result: number; projected: number };
+  totals: {
+    incomePaid: number;
+    incomePending: number;
+    expensePaid: number;
+    expensePending: number;
+    result: number;
+    projected: number;
+    /** RN-52a: gastos do mês, pela data da compra. */
+    spentCents: number;
+    /** RN-52a: o que vence no mês, pela data de pagamento. */
+    toPayCents: number;
+  };
   balance: { initialCents: number; previousCents: number; currentCents: number; projectedCents: number };
   expenseComparison: { currentCents: number; previousCents: number };
   byClass: {
@@ -54,8 +65,8 @@ type Dashboard = {
     comparison: { currentCents: number; previousCents: number };
   }[];
   evolution: (Period & { incomeCents: number; expenseCents: number })[];
-  overdue: { count: number; incomeCents: number; expenseCents: number; entries: Entry[] };
-  upcoming: Entry[];
+  overdue: { count: number; incomeCents: number; expenseCents: number; entries: BillItem[] };
+  upcoming: BillItem[];
 };
 
 type Usage = {
@@ -104,9 +115,9 @@ export function HomePage({ user }: { user: User }) {
     void load();
   }, [load]);
 
-  async function togglePaid(entry: Entry) {
+  async function togglePaid(item: BillItem) {
     try {
-      await api(`/entries/${entry.id}/paid`, { method: 'PATCH', body: JSON.stringify({ paid: !entry.paid }) });
+      await toggleBill(item);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível atualizar o lançamento.');
@@ -148,7 +159,7 @@ export function HomePage({ user }: { user: User }) {
             </div>
             <div className="dashboard__area dashboard__area--side">
               {data.period.isCurrent && (
-                <Bills data={data} categories={categories ?? []} onToggle={(entry) => void togglePaid(entry)} />
+                <Bills data={data} categories={categories ?? []} onToggle={(item) => void togglePaid(item)} onChanged={() => void load()} />
               )}
               <Evolution data={data} />
             </div>
@@ -189,10 +200,18 @@ function Summary({ data }: { data: Dashboard }) {
           <dd>{formatMoney(totals.incomePaid)}</dd>
           {totals.incomePending > 0 && <dd className="stat__sub">A receber: {formatMoney(totals.incomePending)}</dd>}
         </div>
+        {/* RN-52a: o que foi gasto no mês (data da compra) e o que vence no mês (data de pagamento). */}
         <div className="stat">
-          <dt>Pago</dt>
-          <dd>{formatMoney(totals.expensePaid)}</dd>
-          {totals.expensePending > 0 && <dd className="stat__sub">A pagar: {formatMoney(totals.expensePending)}</dd>}
+          <dt>Gastos do mês</dt>
+          <dd>{formatMoney(totals.spentCents)}</dd>
+          <dd className="stat__sub">Pela data da compra</dd>
+        </div>
+        <div className="stat">
+          <dt>A pagar no mês</dt>
+          <dd>{formatMoney(totals.toPayCents)}</dd>
+          <dd className="stat__sub">
+            {totals.expensePending > 0 ? `Falta pagar ${formatMoney(totals.expensePending)}` : 'Tudo pago'}
+          </dd>
         </div>
       </dl>
     </section>
@@ -416,9 +435,21 @@ function OverdueAlert({ overdue }: { overdue: Dashboard['overdue'] }) {
 }
 
 /** Atrasadas de qualquer período e pendentes dos próximos 7 dias, com o check (RN-22b). */
-function Bills({ data, categories, onToggle }: { data: Dashboard; categories: Category[]; onToggle: (entry: Entry) => void }) {
-  const entries = [...data.overdue.entries, ...data.upcoming];
+function Bills({
+  data,
+  categories,
+  onToggle,
+  onChanged,
+}: {
+  data: Dashboard;
+  categories: Category[];
+  onToggle: (item: BillItem) => void;
+  onChanged: () => void;
+}) {
+  const items = [...data.overdue.entries, ...data.upcoming];
   const byId = new Map(categories.map((c) => [c.id, c]));
+  const { methods, cards } = usePayments();
+  const [openInvoice, setOpenInvoice] = useState<BillItem | null>(null);
   return (
     <section className="dashboard__section">
       <div className="section-header">
@@ -443,44 +474,38 @@ function Bills({ data, categories, onToggle }: { data: Dashboard; categories: Ca
           </span>
         </p>
       )}
-      {entries.length === 0 ? (
+      {items.length === 0 ? (
         <p className="card muted small dashboard__empty">Nada atrasado nem vencendo nos próximos 7 dias. 🎉</p>
       ) : (
         <ul className="list">
-          {entries.map((entry) => {
-            const category = byId.get(entry.categoryId);
-            const label = entry.description || category?.name || 'Lançamento';
-            const done = PAID_LABELS[entry.type].toLowerCase();
-            return (
-              <li key={entry.id} className="entry-row">
-                <CheckButton checked={entry.paid} overdue={entry.overdue} label={`${label}: ${done}`} doneLabel={done} onToggle={() => onToggle(entry)} />
-                <div className="list__item entry entry--static">
-                  <span className="entry__text">
-                    <span className="list__label">{label}</span>
-                    <span className="muted small">
-                      {dueText(entry.date)}
-                      {entry.overdue && <span className="badge badge--danger">Atrasado</span>}
-                    </span>
-                  </span>
-                  <span className={`amount amount--${entry.type === 'INCOME' ? 'income' : 'expense'}`}>
-                    {entry.type === 'INCOME' ? '+' : '−'} {formatMoney(entry.amountCents)}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
+          {items.map((item) => (
+            <BillRow
+              key={item.id}
+              item={item}
+              categories={byId}
+              methods={methods ?? []}
+              cards={cards ?? []}
+              dueOnly
+              onToggle={() => onToggle(item)}
+              onOpen={() => (item.invoice ? setOpenInvoice(item) : navigate('/contas'))}
+            />
+          ))}
         </ul>
+      )}
+      {openInvoice && cards && (
+        <InvoiceSheet
+          item={openInvoice}
+          categories={byId}
+          cards={cards}
+          onClose={() => setOpenInvoice(null)}
+          onChanged={() => {
+            setOpenInvoice(null);
+            onChanged();
+          }}
+        />
       )}
     </section>
   );
-}
-
-function dueText(date: string): string {
-  const now = today();
-  if (date === now) return 'Vence hoje';
-  const { day, month } = parseDate(date);
-  const when = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
-  return date < now ? `Venceu em ${when}` : `Vence em ${when}`;
 }
 
 /**

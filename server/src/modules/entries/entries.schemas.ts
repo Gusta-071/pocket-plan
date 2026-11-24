@@ -16,6 +16,21 @@ export const entryDateSchema = dateSchema
     error: () => `A data pode ser no máximo ${formatDate(maxEntryDate())} (12 meses à frente).`,
   });
 
+/** RN-56: de 2 a 480 parcelas (40 anos, para caber um financiamento imobiliário). */
+export const MAX_INSTALLMENTS = 480;
+
+const INSTALLMENTS_ERROR = `Escolha de 2 a ${MAX_INSTALLMENTS} parcelas.`;
+
+/** RN-56: o valor informado é o total ou o de cada parcela; o outro é calculado. */
+export const installmentsSchema = z.object({
+  count: z
+    .number({ error: INSTALLMENTS_ERROR })
+    .int({ error: INSTALLMENTS_ERROR })
+    .min(2, { error: INSTALLMENTS_ERROR })
+    .max(MAX_INSTALLMENTS, { error: INSTALLMENTS_ERROR }),
+  mode: z.enum(['TOTAL', 'INSTALLMENT'], { error: 'Informe se o valor é o total ou o de cada parcela.' }),
+});
+
 const entryFields = {
   type: z.enum(CATEGORY_TYPES, { error: 'Escolha receita ou despesa.' }),
   amountCents: z
@@ -41,7 +56,16 @@ const entryFields = {
   cardId: z.number({ error: 'Escolha o cartão.' }).int().positive().nullish(),
 };
 
-export const entrySchema = z.object(entryFields);
+export const entrySchema = z.object({ ...entryFields, installments: installmentsSchema.optional() });
+
+/**
+ * Edição (RN-24). A data máxima de RN-23 é conferida no serviço, porque uma parcela pode estar
+ * mais de 12 meses à frente (RN-56); o parcelamento não muda pela edição (RN-56a).
+ */
+export const updateEntrySchema = z.object({
+  ...entryFields,
+  date: dateSchema.refine((date) => date >= MIN_ENTRY_DATE, { error: 'A data deve ser a partir de 01/01/2000.' }),
+});
 
 /** RN-22b: marcar ou desmarcar pela lista. */
 export const paidSchema = z.object({ paid: z.boolean({ error: 'Informe se está pago.' }) });

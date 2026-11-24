@@ -16,6 +16,10 @@ export type Card = {
   closingDay: number;
   dueDay: number;
   archived: boolean;
+  /** RN-55: o que não foi pago, inclusive faturas futuras. */
+  usedCents: number;
+  availableCents: number;
+  usageStatus: 'OK' | 'WARNING' | 'EXCEEDED';
 };
 
 /** Formas de pagamento e cartões do usuário, carregados juntos. */

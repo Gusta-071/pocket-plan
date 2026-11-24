@@ -39,6 +39,7 @@ model User {
   budgets                 Budget[]
   paymentMethods          PaymentMethod[]
   cards                   Card[]
+  installments            Installment[]
 }
 
 /// Código de confirmação de e-mail: só o hash, 24 horas, uso único (RN-09f).
@@ -114,34 +115,42 @@ model Category {
 
 /// Lançamento de receita ou despesa (RN-19 a RN-25d).
 model Entry {
-  id              Int            @id @default(autoincrement())
-  userId          Int
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                Int            @id @default(autoincrement())
+  userId            Int
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// INCOME | EXPENSE, igual ao tipo da categoria (RN-21).
-  type            String
+  type              String
   /// Valor em centavos, maior que zero (RN-01, RN-20).
-  amountCents     Int
+  amountCents       Int
   /// Data sem horário, "AAAA-MM-DD" (RN-03). O formato ordena corretamente como texto.
-  date            String
-  categoryId      Int
+  date              String
+  categoryId        Int
   /// Restrict: uma categoria com lançamentos só sai movendo-os antes (RN-18).
-  category        Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  description     String?
+  category          Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  description       String?
   /// Pago (despesa) ou recebido (receita), marcado pelo usuário (RN-22).
-  paid            Boolean        @default(false)
+  paid              Boolean        @default(false)
   /// Forma de pagamento (RN-67). Só nas despesas; nula nas receitas.
-  paymentMethodId Int?
-  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  paymentMethodId   Int?
+  paymentMethod     PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
   /// Cartão da compra no crédito (RN-52). Nulo nas demais formas.
-  cardId          Int?
-  card            Card?          @relation(fields: [cardId], references: [id], onDelete: Restrict)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  cardId            Int?
+  card              Card?          @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  /// Data de pagamento (RN-52a): igual à data, ou o vencimento da fatura nas compras no cartão (RN-53, RN-53a).
+  payDate           String
+  /// Parcelamento a que pertence (RN-56, RN-56a) e o número da parcela, a partir de 1.
+  installmentId     Int?
+  installment       Installment?   @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  installmentNumber Int?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([userId, date])
   @@index([categoryId])
   @@index([paymentMethodId])
   @@index([cardId])
+  @@index([userId, payDate])
+  @@index([installmentId])
 }
 
 /// Limite de orçamento ou meta, com vigência (RN-29 a RN-34).
@@ -205,5 +214,18 @@ model Card {
   entries    Entry[]
 
   @@unique([userId, nameKey])
+  @@index([userId])
+}
+
+/// Parcelamento (RN-56, RN-56a): agrupa as parcelas de uma compra, que são lançamentos comuns.
+model Installment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Número de parcelas, de 2 a 480.
+  count     Int
+  createdAt DateTime @default(now())
+  entries   Entry[]
+
   @@index([userId])
 }

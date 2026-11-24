@@ -1,5 +1,5 @@
 /**
- * Regras das Contas do mês (RN-50 a RN-50c) como funções puras: recebem os lançamentos já buscados
+ * Regras das Contas do mês (RN-50 a RN-50d) como funções puras: recebem os lançamentos já buscados
  * e devolvem a lista organizada, sem banco nem relógio ("Functional Core, Imperative Shell").
  */
 
@@ -14,9 +14,52 @@ export type BillEntry = {
 const byDate = <T extends BillEntry>(a: T, b: T) => a.date.localeCompare(b.date) || a.id - b.id;
 const total = (entries: BillEntry[]) => entries.reduce((sum, e) => sum + e.amountCents, 0);
 
+/** Lançamento como as Contas o recebem: com a data de pagamento (RN-52a) e o cartão. */
+export type PayableEntry = BillEntry & { payDate: string; cardId: number | null; overdue: boolean };
+
+/** Uma conta: um lançamento à vista, ou uma fatura inteira de cartão (RN-50d). */
+export type BillItem<T extends PayableEntry> =
+  | (T & { invoice: null })
+  | (BillEntry & { overdue: boolean; payDate: string; cardId: number; invoice: { cardId: number; due: string; count: number; entries: T[] } });
+
+/**
+ * RN-50d, RN-54: agrupa as compras no cartão em faturas (cartão + vencimento). A fatura está paga
+ * quando todas as compras dela estão; vale a data de pagamento (o vencimento) para ordenar.
+ * Os demais lançamentos passam como estão, com a data de pagamento como data da conta.
+ */
+export function groupInvoices<T extends PayableEntry>(entries: T[]): BillItem<T>[] {
+  const items: BillItem<T>[] = [];
+  const invoices = new Map<string, T[]>();
+  for (const entry of entries) {
+    if (entry.cardId === null) {
+      items.push({ ...entry, date: entry.payDate, invoice: null });
+      continue;
+    }
+    const key = `${entry.cardId}|${entry.payDate}`;
+    invoices.set(key, [...(invoices.get(key) ?? []), entry]);
+  }
+  for (const group of invoices.values()) {
+    const first = group[0]!;
+    const paid = group.every((e) => e.paid);
+    items.push({
+      // Id negativo e estável: não colide com lançamentos e não muda entre buscas.
+      id: -Math.min(...group.map((e) => e.id)),
+      type: 'EXPENSE',
+      amountCents: total(group),
+      date: first.payDate,
+      payDate: first.payDate,
+      paid,
+      overdue: group.some((e) => e.overdue),
+      cardId: first.cardId!,
+      invoice: { cardId: first.cardId!, due: first.payDate, count: group.length, entries: [...group].sort(byDate) },
+    });
+  }
+  return items;
+}
+
 /**
  * Organiza as contas de um período.
- * - `entries`: lançamentos do período (despesas e receitas).
+ * - `entries`: contas do período (despesas e receitas), já com as faturas agrupadas.
  * - `earlierPending`: pendentes de períodos anteriores; só entram no aviso quando o período é o atual (RN-50c).
  */
 export function buildChecklist<T extends BillEntry>(entries: T[], earlierPending: T[], isCurrent: boolean) {
@@ -32,7 +75,7 @@ export function buildChecklist<T extends BillEntry>(entries: T[], earlierPending
   const previous = isCurrent ? [...earlierPending].sort(byDate) : [];
 
   return {
-    // RN-50a: o progresso conta só as despesas do período.
+    // RN-50a: o progresso conta só as despesas do período (cada fatura conta como uma conta).
     progress: {
       paidCount: paid.length,
       totalCount: expenses.length,

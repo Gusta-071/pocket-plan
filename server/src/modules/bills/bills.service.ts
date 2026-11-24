@@ -1,20 +1,14 @@
 import { periodContaining, today, type PeriodNaming } from '../../../../shared/period.js';
 import { prisma } from '../../lib/prisma.js';
-import { buildChecklist } from './bills.core.js';
+import { toPublicEntry } from '../entries/entries.service.js';
+import { buildChecklist, groupInvoices } from './bills.core.js';
 
-type Row = {
-  id: number;
-  type: string;
-  amountCents: number;
-  date: string;
-  categoryId: number;
-  description: string | null;
-  paid: boolean;
-  paymentMethodId: number | null;
-  cardId: number | null;
-};
+const withInstallment = { installment: { select: { count: true } } } as const;
 
-/** Contas do mês (RN-50) do período que contém `date`. */
+/**
+ * Contas do mês (RN-50 a RN-50d) do período que contém `date`, pela data de pagamento (RN-52a):
+ * o que vence no período, com as compras no cartão agrupadas em faturas.
+ */
 export async function getBills(userId: number, date: string) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const todayValue = today();
@@ -22,26 +16,15 @@ export async function getBills(userId: number, date: string) {
   const isCurrent = todayValue >= period.start && todayValue <= period.end;
 
   const [inPeriod, earlierPending] = await Promise.all([
-    prisma.entry.findMany({ where: { userId, date: { gte: period.start, lte: period.end } } }),
-    isCurrent ? prisma.entry.findMany({ where: { userId, paid: false, date: { lt: period.start } } }) : Promise.resolve([]),
+    prisma.entry.findMany({ where: { userId, payDate: { gte: period.start, lte: period.end } }, include: withInstallment }),
+    isCurrent
+      ? prisma.entry.findMany({ where: { userId, paid: false, payDate: { lt: period.start } }, include: withInstallment })
+      : Promise.resolve([]),
   ]);
 
-  // Os mesmos campos da lista de lançamentos; atrasado é calculado na hora (RN-22a).
-  const toPublic = (r: Row) => ({
-    id: r.id,
-    type: r.type,
-    amountCents: r.amountCents,
-    date: r.date,
-    categoryId: r.categoryId,
-    description: r.description,
-    paid: r.paid,
-    overdue: !r.paid && r.date < todayValue,
-    paymentMethodId: r.paymentMethodId,
-    cardId: r.cardId,
-  });
-
+  const items = (rows: typeof inPeriod) => groupInvoices(rows.map((r) => toPublicEntry(r, todayValue)));
   return {
     period: { ...period, isCurrent },
-    ...buildChecklist(inPeriod.map(toPublic), earlierPending.map(toPublic), isCurrent),
+    ...buildChecklist(items(inPeriod), items(earlierPending), isCurrent),
   };
 }

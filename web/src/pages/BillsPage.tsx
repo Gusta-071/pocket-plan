@@ -1,32 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatDate, parseDate, shiftPeriod, today, type Period } from '../../../shared/period';
+import { formatDate, shiftPeriod, today, type Period } from '../../../shared/period';
 import type { User } from '../auth/AuthContext';
-import { CheckButton } from '../components/CheckButton';
-import { EntrySheet, PAID_LABELS, type Entry, type EntrySheetMode } from '../components/EntrySheet';
+import { BillRow, InvoiceSheet, toggleBill, type BillItem } from '../components/BillRow';
+import { EntrySheet, type EntrySheetMode } from '../components/EntrySheet';
 import { Alert } from '../components/Form';
 import { PeriodNav } from '../components/PeriodNav';
 import { api } from '../lib/api';
-import { CATEGORY_COLORS, type Category } from '../lib/categories';
+import type { Category } from '../lib/categories';
 import { formatMoney } from '../lib/money';
-import { paymentLabel, usePayments } from '../lib/payments';
+import { usePayments } from '../lib/payments';
 import { useCategories } from '../lib/useCategories';
 
 type Bills = {
   period: Period & { isCurrent: boolean };
   progress: { paidCount: number; totalCount: number; paidCents: number; pendingCents: number };
-  expenses: Entry[];
-  receivables: { entries: Entry[]; totalCents: number };
-  previousOverdue: { entries: Entry[]; expenseCents: number; incomeCents: number };
+  expenses: BillItem[];
+  receivables: { entries: BillItem[]; totalCents: number };
+  previousOverdue: { entries: BillItem[]; expenseCents: number; incomeCents: number };
 };
-
-function dueText(entry: Entry): string {
-  const now = today();
-  const { day, month } = parseDate(entry.date);
-  const when = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
-  if (entry.paid) return `${entry.type === 'INCOME' ? 'Recebido' : 'Pago'} · venc. ${when}`;
-  if (entry.date === now) return 'Vence hoje';
-  return entry.date < now ? `Venceu em ${when}` : `Vence em ${when}`;
-}
 
 /** Contas do mês (RN-50 a RN-50d): checklist das despesas do período, com o progresso no topo. */
 export function BillsPage({ user }: { user: User }) {
@@ -36,6 +27,8 @@ export function BillsPage({ user }: { user: User }) {
   const [data, setData] = useState<Bills | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<EntrySheetMode | null>(null);
+  const [openInvoice, setOpenInvoice] = useState<BillItem | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const lastRequest = useRef(0);
 
   const period = shiftPeriod(today(), offset, user.monthStartDay, user.periodNaming);
@@ -57,9 +50,9 @@ export function BillsPage({ user }: { user: User }) {
     void load();
   }, [load]);
 
-  async function togglePaid(entry: Entry) {
+  async function toggle(item: BillItem) {
     try {
-      await api(`/entries/${entry.id}/paid`, { method: 'PATCH', body: JSON.stringify({ paid: !entry.paid }) });
+      await toggleBill(item);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível atualizar a conta.');
@@ -70,28 +63,17 @@ export function BillsPage({ user }: { user: User }) {
   const progress = data?.progress;
   const percent = progress && progress.totalCount > 0 ? Math.round((progress.paidCount / progress.totalCount) * 100) : 0;
 
-  const row = (entry: Entry) => {
-    const category = byId.get(entry.categoryId);
-    const label = entry.description || category?.name || 'Lançamento';
-    const done = PAID_LABELS[entry.type].toLowerCase();
-    const payment = paymentLabel(entry, methods ?? [], cards ?? []);
-    return (
-      <li key={entry.id} className={`entry-row bill ${entry.paid ? 'bill--paid' : ''}`}>
-        <CheckButton checked={entry.paid} overdue={entry.overdue} label={`${label}: ${done}`} doneLabel={done} onToggle={() => void togglePaid(entry)} />
-        <button type="button" className="list__item entry" onClick={() => setSheet({ kind: 'edit', entry })}>
-          <span className="color-dot" style={{ background: category ? CATEGORY_COLORS[category.color].hex : undefined }} aria-hidden="true" />
-          <span className="entry__text">
-            <span className="list__label bill__label">{label}</span>
-            <span className="muted small">
-              {[dueText(entry), payment].filter(Boolean).join(' · ')}
-              {entry.overdue && <span className="badge badge--danger">Atrasado</span>}
-            </span>
-          </span>
-          <span className={`amount amount--${entry.type === 'INCOME' ? 'income' : 'expense'}`}>{formatMoney(entry.amountCents)}</span>
-        </button>
-      </li>
-    );
-  };
+  const row = (item: BillItem) => (
+    <BillRow
+      key={item.id}
+      item={item}
+      categories={byId}
+      methods={methods ?? []}
+      cards={cards ?? []}
+      onToggle={() => void toggle(item)}
+      onOpen={() => (item.invoice ? setOpenInvoice(item) : setSheet({ kind: 'edit', entry: item }))}
+    />
+  );
 
   return (
     <>
@@ -103,6 +85,7 @@ export function BillsPage({ user }: { user: User }) {
       </div>
 
       {error && <Alert kind="error">{error}</Alert>}
+      {notice && <Alert kind="warning">{notice}</Alert>}
       {!data && !error && (
         <p className="muted" role="status">
           Carregando…
@@ -180,8 +163,8 @@ export function BillsPage({ user }: { user: User }) {
             )}
 
             <p className="muted small bills-footnote">
-              Período de {formatDate(data.period.start)} a {formatDate(data.period.end)}. Compras no cartão aparecem uma a uma até as faturas
-              existirem.
+              Contas que vencem de {formatDate(data.period.start)} a {formatDate(data.period.end)}. As compras no cartão aparecem na fatura,
+              no mês do vencimento.
             </p>
           </div>
         </div>
@@ -194,8 +177,21 @@ export function BillsPage({ user }: { user: User }) {
           methods={methods}
           cards={cards}
           onClose={() => setSheet(null)}
-          onSaved={() => {
+          onSaved={(_date, warning) => {
             setSheet(null);
+            setNotice(warning ?? null);
+            void load();
+          }}
+        />
+      )}
+      {openInvoice && cards && (
+        <InvoiceSheet
+          item={openInvoice}
+          categories={byId}
+          cards={cards}
+          onClose={() => setOpenInvoice(null)}
+          onChanged={() => {
+            setOpenInvoice(null);
             void load();
           }}
         />

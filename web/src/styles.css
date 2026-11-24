@@ -853,3 +853,27 @@ section:first-of-type > .class-group__header { margin-top: 0; }
   .categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
   .categories__switch { display: none; }
 }
+
+/* Painel: quatro números (saldo, recebido, gastos do mês e a pagar no mês, RN-52a). */
+@media (min-width: 641px) {
+  .stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}
+.color-dot--card { border-radius: 3px; }
+.installments { display: grid; gap: 10px; }
+.installments__fields { display: grid; gap: 10px; padding-left: 4px; }
+.installments__fields .segmented { margin: 0; }
+
+/* RN-54: compra no cartão, paga pela fatura (no lugar do check). */
+.card-mark { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; color: var(--color-muted); }
+.card-mark--paid { color: var(--color-success); }
+
+/* Limite do cartão (RN-55) e faturas (RN-53b). */
+.card-usage { display: grid; gap: 4px; margin-top: 4px; }
+.card-usage--warning .meter__fill { background: var(--color-warning); }
+.card-usage--exceeded .meter__fill { background: var(--color-danger); }
+.invoices { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.invoice { padding: 0; overflow: hidden; }
+.invoice__header { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.invoice__header:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.invoice__body { display: grid; gap: 10px; padding: 0 14px 14px; }
+.invoice__entry { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--color-divider); }
