@@ -2,6 +2,7 @@ import { addDays, daysBetween, periodContaining, shiftPeriod, today, type Period
 import { prisma } from '../../lib/prisma.js';
 import { budgetUsage, investmentGoalProgress, LIMITED_CLASSES, savingsGoalProgress } from '../budgets/budgets.core.js';
 import { effectiveBudgets, loadBudgetRows } from '../budgets/budgets.service.js';
+import { buildChecklist } from '../bills/bills.core.js';
 import { EXPENSE_CLASSES } from '../categories/categories.constants.js';
 
 /** Quantos períodos aparecem no gráfico de evolução, contando o escolhido. */
@@ -207,8 +208,12 @@ export async function getDashboard(userId: number, date: string) {
     cardId: r.cardId,
   });
 
+  // RN-50a: o mesmo progresso das Contas do mês, no bloco de contas do painel.
+  const billsProgress = buildChecklist(inPeriod, [], isCurrent).progress;
+
   return {
     period: { ...period, isCurrent, comparisonDay },
+    billsProgress,
     previousPeriod: previous,
     totals: { ...totals, result, projected },
     balance: { initialCents: user.initialBalanceCents, previousCents: previousBalance, currentCents: balance, projectedCents: projectedBalance },

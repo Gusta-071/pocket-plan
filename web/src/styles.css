@@ -792,3 +792,64 @@ section:first-of-type > .class-group__header { margin-top: 0; }
 .form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .color-dot--small { width: 8px; height: 8px; display: inline-block; vertical-align: middle; }
 .proposal__select { font: inherit; font-size: 0.85rem; padding: 2px 4px; max-width: 100%; }
+
+/* Contas do mês (RN-50 a RN-50c). */
+.bills-progress { display: grid; gap: 10px; padding: 16px; margin-bottom: 12px; }
+.bills-progress__top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bills-overdue { margin-bottom: 12px; }
+.bills-overdue summary { cursor: pointer; }
+.bills-overdue__list { margin-top: 10px; color: var(--color-text); }
+.bill--paid .bill__label { text-decoration: line-through; color: var(--color-muted); }
+.bill--paid .amount { opacity: 0.6; }
+.bills-receivables { margin-top: 20px; }
+.bills-receivables .section-header { margin-bottom: 8px; }
+.bills-footnote { margin-top: 16px; }
+.bills-mini { display: grid; gap: 6px; margin: 0 0 8px; }
+
+/*
+ * Telas largas no PC: a partir de 1024 px, as telas usam a largura disponível em vez de uma coluna
+ * estreita no meio. No celular, tudo continua empilhado (mobile-first).
+ */
+.wide-header { flex-wrap: wrap; }
+.wide-header .period-nav { margin: 0; }
+.bills, .entries { display: grid; gap: 12px; }
+.bills__main, .bills__side, .bills__extra, .entries__main, .entries__side { min-width: 0; }
+.categories__column-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.categories__column-header h2 { margin: 0; font-size: 1.1rem; }
+
+@media (max-width: 1023px) {
+  .wide-header { display: block; }
+  .wide-header h1 { margin-bottom: 8px; }
+  .categories__column--inactive { display: none; }
+}
+
+@media (min-width: 1024px) {
+  .content:has(.bills, .entries, .settings, .categories) { max-width: 1200px; }
+  .wide-header__period { width: 380px; }
+
+  /* Contas do mês: lista à esquerda; progresso, atrasadas e a receber à direita. */
+  .bills {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas: 'main side' 'main extra';
+    align-items: start;
+    gap: 16px 24px;
+  }
+  .bills__main { grid-area: main; }
+  .bills__side { grid-area: side; position: sticky; top: 24px; }
+  .bills__extra { grid-area: extra; }
+  .bills-receivables { margin-top: 0; }
+
+  /* Lançamentos: lista à esquerda; totais e filtros numa coluna fixa à direita. */
+  .entries { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: 'main side'; align-items: start; gap: 24px; }
+  .entries__main { grid-area: main; }
+  .entries__side { grid-area: side; position: sticky; top: 24px; display: grid; gap: 12px; }
+  .entries__side .summary { margin: 0; }
+  .entries__side .filters { grid-template-columns: 1fr; margin: 0; }
+
+  /* Ajustes e Formas de pagamento: seções em duas colunas. */
+  .settings { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+
+  /* Categorias: despesas e receitas lado a lado; a escolha do tipo não é necessária. */
+  .categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+  .categories__switch { display: none; }
+}

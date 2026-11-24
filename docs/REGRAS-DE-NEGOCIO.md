@@ -156,7 +156,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **RN-33 — Definição.** O usuário pode definir uma meta de economia por período (valor > 0). A vigência segue a mesma regra do orçamento (RN-30).
 - **RN-34 — Avaliação.** A meta é **atingida** quando o resultado realizado do período (RN-26) é maior ou igual à meta. Durante o período, o sistema mostra também se o resultado projetado (RN-27) atinge a meta.
 
-## Painel do período *(em parte: falta o atalho para as Contas do mês)*
+## Painel do período
 
 - **RN-48 — Painel.** A tela inicial mostra o período atual, com navegação para os anteriores e os seguintes (como na lista de lançamentos):
   - saldo anterior, receitas, gastos fixos, gastos variáveis, investido, resultado realizado e projetado, e saldo acumulado (RN-26 a RN-28a);
@@ -164,19 +164,20 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - para cada classe e cada categoria com limite: consumido, comprometido e disponível, com os alertas de RN-32;
   - gastos por categoria, inclusive as sem limite, do maior para o menor;
   - gastos por forma de pagamento (RN-71);
-  - total pendente do período e quantidade de contas atrasadas (RN-22a), com atalho para as Contas do mês (RN-50).
+  - total pendente do período e quantidade de contas atrasadas (RN-22a), com o progresso das contas e um atalho para as Contas do mês (RN-50, RN-50a).
 - **RN-49 — Comparação com o período anterior.** Para cada categoria e classe de despesa, o painel compara o gasto do período com o do período anterior, em reais e em porcentagem. Se o período anterior não teve gasto, mostra "novo" em vez da porcentagem.
   - A comparação considera todas as despesas pela data, pagas ou pendentes, porque mede o quanto se gastou, e não o quanto já saiu da conta.
   - No período atual, que ainda não terminou, a comparação usa o período anterior até o mesmo dia (ex.: os 10 primeiros dias de cada um). Períodos já encerrados são comparados inteiros.
 
-## Contas do mês *(planejada)*
+## Contas do mês
 
-- **RN-50 — Checklist.** A aba Contas do mês mostra, para o período escolhido, as despesas e receitas em forma de checklist, ordenadas pela data:
-  - primeiro as **atrasadas** (RN-22a), inclusive as de períodos anteriores;
-  - depois as **pendentes** do período;
-  - por fim as já **pagas/recebidas** do período, riscadas.
+- **RN-50 — Checklist.** A aba Contas do mês, na navegação principal, mostra as despesas do período escolhido em forma de checklist, ordenadas pela data: primeiro as **pendentes** (as atrasadas, RN-22a, destacadas), depois as **pagas**, riscadas. O usuário marca e desmarca com um toque (RN-22b).
+  - **RN-50a — Progresso.** O topo mostra quantas despesas do período estão pagas e quanto falta pagar (ex.: "8 de 10 contas pagas · falta pagar R$ 450,00"). O progresso conta só despesas: é a lista das contas a pagar.
+  - **RN-50b — A receber.** Receitas pendentes do período (ex.: salário lançado com antecedência, um pagamento que alguém ainda deve) aparecem numa seção à parte, "A receber", com o total. Sem receitas pendentes, a seção não aparece.
+  - **RN-50c — Atrasadas de meses anteriores.** No período atual, as despesas e receitas pendentes de períodos anteriores aparecem num aviso recolhível ("3 contas atrasadas de meses anteriores"), e não misturadas à lista do mês, até serem marcadas. Ao navegar para um período passado, a tela mostra as contas daquele período, com as que ficaram pendentes marcadas como atrasadas.
+  - **RN-50d — Compras no cartão.** Enquanto as faturas (RN-53, RN-54) não existem, as compras no cartão aparecem uma a uma, como as demais despesas. Com as faturas, cada fatura que vence no período passa a aparecer como um único item, com o valor total e o check da fatura.
 
-  Compras no cartão não aparecem uma a uma: cada fatura que vence no período aparece como um único item, com o valor total e o check da fatura (RN-54). O topo mostra o progresso ("8 de 12 contas pagas") e o total que falta pagar e receber.
+  O painel mostra o mesmo progresso no bloco de contas, com um atalho para esta aba (RN-48).
 
 ## Cartões de crédito *(em parte: cadastro e escolha do cartão; faturas, limite e parcelamento planejados)*
 
