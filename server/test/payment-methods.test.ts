@@ -167,6 +167,7 @@ describe('forma de pagamento nos lançamentos (RN-67, RN-70)', () => {
     expect((await list(`paymentMethodId=${pix}`)).body.entries.map((e: { amountCents: number }) => e.amountCents)).toEqual([100]);
     const byCard = (await list(`cardId=${card}`)).body;
     expect(byCard.entries.map((e: { amountCents: number }) => e.amountCents)).toEqual([200]);
-    expect(byCard.totals.expensePaid).toBe(200);
+    // RN-54: a compra no cartão fica pendente até a fatura ser paga.
+    expect(byCard.totals.expensePending).toBe(200);
   });
 });

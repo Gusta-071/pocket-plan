@@ -2,7 +2,8 @@ import { addDays, daysBetween, periodContaining, shiftPeriod, today, type Period
 import { prisma } from '../../lib/prisma.js';
 import { budgetUsage, investmentGoalProgress, LIMITED_CLASSES, savingsGoalProgress } from '../budgets/budgets.core.js';
 import { effectiveBudgets, loadBudgetRows } from '../budgets/budgets.service.js';
-import { buildChecklist } from '../bills/bills.core.js';
+import { buildChecklist, groupInvoices } from '../bills/bills.core.js';
+import { toPublicEntry } from '../entries/entries.service.js';
 import { EXPENSE_CLASSES } from '../categories/categories.constants.js';
 
 /** Quantos períodos aparecem no gráfico de evolução, contando o escolhido. */
@@ -20,6 +21,7 @@ type Row = {
   paid: boolean;
   paymentMethodId: number | null;
   cardId: number | null;
+  payDate: string;
 };
 
 const sum = (rows: Row[], filter: (row: Row) => boolean) => rows.reduce((total, row) => (filter(row) ? total + row.amountCents : total), 0);
@@ -27,6 +29,7 @@ const sum = (rows: Row[], filter: (row: Row) => boolean) => rows.reduce((total, 
 /**
  * Painel do período (RN-48, RN-49) que contém `date`.
  * Tudo é calculado a partir dos lançamentos, como os demais totais (RN-13).
+ * RN-52a: gastos, orçamento e comparações seguem a data da compra; resultado, saldo e contas, a data de pagamento.
  */
 export async function getDashboard(userId: number, date: string) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
@@ -47,19 +50,28 @@ export async function getDashboard(userId: number, date: string) {
   const isIncome = (r: Row) => r.type === 'INCOME';
   const isExpense = (r: Row) => r.type === 'EXPENSE';
 
-  // RN-26, RN-27
+  // O que vence no período, pela data de pagamento (RN-52a): resultado, a pagar e contas.
+  const payRows = await prisma.entry.findMany({
+    where: { userId, payDate: { gte: period.start, lte: period.end } },
+    include: { installment: { select: { count: true } } },
+  });
+
+  // RN-26, RN-27: o dinheiro que entra e sai no período.
   const totals = {
-    incomePaid: sum(inPeriod, (r) => isIncome(r) && r.paid),
-    incomePending: sum(inPeriod, (r) => isIncome(r) && !r.paid),
-    expensePaid: sum(inPeriod, (r) => isExpense(r) && r.paid),
-    expensePending: sum(inPeriod, (r) => isExpense(r) && !r.paid),
+    incomePaid: sum(payRows, (r) => isIncome(r) && r.paid),
+    incomePending: sum(payRows, (r) => isIncome(r) && !r.paid),
+    expensePaid: sum(payRows, (r) => isExpense(r) && r.paid),
+    expensePending: sum(payRows, (r) => isExpense(r) && !r.paid),
   };
+  // RN-52a: "Gastos do mês" (pela data da compra) e "A pagar no mês" (pela data de pagamento).
+  const spentCents = sum(inPeriod, isExpense);
+  const toPayCents = totals.expensePaid + totals.expensePending;
   const result = totals.incomePaid - totals.expensePaid;
   const projected = result + totals.incomePending - totals.expensePending;
 
   // RN-28a: saldo inicial + tudo o que foi pago/recebido até o fim do período.
   const paidUntil = async (type: string, paid: boolean, lte: string) =>
-    (await prisma.entry.aggregate({ where: { userId, type, paid, date: { lte } }, _sum: { amountCents: true } }))._sum.amountCents ?? 0;
+    (await prisma.entry.aggregate({ where: { userId, type, paid, payDate: { lte } }, _sum: { amountCents: true } }))._sum.amountCents ?? 0;
   const [incomeBefore, expenseBefore, incomePendingUntilEnd, expensePendingUntilEnd] = await Promise.all([
     paidUntil('INCOME', true, addDays(period.start, -1)),
     paidUntil('EXPENSE', true, addDays(period.start, -1)),
@@ -187,35 +199,28 @@ export async function getDashboard(userId: number, date: string) {
     return { ...p, incomeCents: sum(of, isIncome), expenseCents: sum(of, isExpense) };
   });
 
-  // Contas atrasadas (de qualquer período) e as pendentes dos próximos dias (RN-22a, RN-50).
+  // Contas atrasadas (de qualquer período) e as pendentes dos próximos dias, pela data de pagamento,
+  // com as compras no cartão agrupadas em faturas (RN-22a, RN-50, RN-50d).
+  const withInstallment = { installment: { select: { count: true } } } as const;
   const [overdueRows, upcomingRows] = await Promise.all([
-    prisma.entry.findMany({ where: { userId, paid: false, date: { lt: todayValue } }, orderBy: [{ date: 'asc' }, { id: 'asc' }] }),
+    prisma.entry.findMany({ where: { userId, paid: false, payDate: { lt: todayValue } }, include: withInstallment }),
     prisma.entry.findMany({
-      where: { userId, paid: false, date: { gte: todayValue, lte: addDays(todayValue, UPCOMING_DAYS) } },
-      orderBy: [{ date: 'asc' }, { id: 'asc' }],
+      where: { userId, paid: false, payDate: { gte: todayValue, lte: addDays(todayValue, UPCOMING_DAYS) } },
+      include: withInstallment,
     }),
   ]);
-  const publicEntry = (r: Row) => ({
-    id: r.id,
-    type: r.type,
-    amountCents: r.amountCents,
-    date: r.date,
-    categoryId: r.categoryId,
-    description: r.description,
-    paid: r.paid,
-    overdue: !r.paid && r.date < todayValue,
-    paymentMethodId: r.paymentMethodId,
-    cardId: r.cardId,
-  });
+  const items = (list: typeof overdueRows) =>
+    groupInvoices(list.map((r) => toPublicEntry(r, todayValue))).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const overdueItems = items(overdueRows);
 
   // RN-50a: o mesmo progresso das Contas do mês, no bloco de contas do painel.
-  const billsProgress = buildChecklist(inPeriod, [], isCurrent).progress;
+  const billsProgress = buildChecklist(items(payRows), [], isCurrent).progress;
 
   return {
     period: { ...period, isCurrent, comparisonDay },
     billsProgress,
     previousPeriod: previous,
-    totals: { ...totals, result, projected },
+    totals: { ...totals, result, projected, spentCents, toPayCents },
     balance: { initialCents: user.initialBalanceCents, previousCents: previousBalance, currentCents: balance, projectedCents: projectedBalance },
     expenseComparison,
     byClass,
@@ -225,11 +230,11 @@ export async function getDashboard(userId: number, date: string) {
     byCategory,
     evolution,
     overdue: {
-      count: overdueRows.length,
+      count: overdueItems.length,
       incomeCents: sum(overdueRows, isIncome),
       expenseCents: sum(overdueRows, isExpense),
-      entries: overdueRows.map(publicEntry),
+      entries: overdueItems,
     },
-    upcoming: upcomingRows.map(publicEntry),
+    upcoming: items(upcomingRows),
   };
 }

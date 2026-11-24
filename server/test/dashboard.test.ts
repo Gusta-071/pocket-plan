@@ -61,7 +61,7 @@ describe('resumo do período (RN-26 a RN-28a, RN-48)', () => {
 
   it('calcula pago, pendente, resultado e projetado', async () => {
     const { totals } = (await dashboard(TODAY)).body;
-    expect(totals).toEqual({ incomePaid: 6000, incomePending: 0, expensePaid: 1000, expensePending: 500, result: 5000, projected: 4500 });
+    expect(totals).toEqual({ incomePaid: 6000, incomePending: 0, expensePaid: 1000, expensePending: 500, result: 5000, projected: 4500, spentCents: 1500, toPayCents: 1500 });
   });
 
   it('acumula o saldo a partir do saldo inicial (RN-28a)', async () => {

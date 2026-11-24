@@ -15,7 +15,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **Orçamento por classe e meta de investimento (RN-29a, RN-29b), com nível de atenção configurável (RN-32a).**
 - **Categorias e nível de atenção nos ajustes; metas no painel (RN-47a).**
 - **Novas seções:** Painel do período (RN-48, RN-49; implementado em parte), Contas do mês (RN-50), Cartões de crédito (RN-51 a RN-57) e Despesas compartilhadas (RN-58 a RN-65).
-- **Formas de pagamento (RN-67 a RN-71) e cadastro de cartões (RN-51, RN-52, RN-57).**
+- **Formas de pagamento (RN-67 a RN-71) e cartões de crédito com faturas, limite e parcelamento (RN-51 a RN-57).**
 - **Assistente com IA (RN-66, implementado).** Lançar receitas e despesas conversando, sempre com confirmação.
 - **Ajustes ligados a essas seções:** RN-04, RN-09, RN-17, RN-18, RN-24, RN-25a, RN-25b, RN-26, RN-27, RN-31 e RN-47.
 
@@ -106,7 +106,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   A situação é armazenada e só muda quando o usuário a altera. Ao criar um lançamento, o formulário já sugere a situação pela data: **marcado** (pago/recebido) quando a data é até hoje, e **desmarcado** (pendente) quando é futura. O usuário pode mudar antes de salvar, por exemplo para registrar uma conta já vencida que ainda não pagou ou uma conta futura que pagou adiantado.
 
   Compras no cartão de crédito não têm check próprio: a situação delas acompanha a fatura (RN-54).
-  - **RN-22a — Atrasado.** Um lançamento pendente com data anterior a hoje é exibido como **atrasado**. Essa indicação é calculada, não armazenada.
+  - **RN-22a — Atrasado.** Um lançamento pendente com data de pagamento (RN-52a) anterior a hoje é exibido como **atrasado**; no cartão, é o vencimento da fatura (RN-53b). Essa indicação é calculada, não armazenada.
   - **RN-22b — Marcar pela lista.** O usuário pode marcar e desmarcar um lançamento direto na lista, com um toque, sem abrir o formulário.
 - **RN-23 — Limite de datas.** Lançamentos podem ter data até 12 meses após hoje. Datas anteriores a 01/01/2000 não são aceitas, para evitar erros de digitação. A única exceção são as parcelas de compras parceladas (RN-56).
 - **RN-24 — Edição.** Todos os campos de um lançamento podem ser editados, inclusive a situação, com as mesmas validações da criação. Alterar a data não muda a situação.
@@ -128,12 +128,12 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 
 ## Resultado do período
 
-- **RN-26 — Resultado realizado.** Resultado = receitas **recebidas** − despesas **pagas** do período financeiro, considerando a data dos lançamentos. Pode ser negativo. Despesas de todas as classes entram no cálculo, inclusive Investimento (RN-28).
+- **RN-26 — Resultado realizado.** Resultado = receitas **recebidas** − despesas **pagas** do período financeiro, considerando a data de pagamento dos lançamentos (RN-52a): é o dinheiro que de fato entrou e saiu. Pode ser negativo. Despesas de todas as classes entram no cálculo, inclusive Investimento (RN-28).
 - **RN-27 — Resultado projetado.** Resultado projetado = resultado realizado + receitas pendentes − despesas pendentes do período. É exibido separadamente do resultado realizado.
 - **RN-28 — Investimentos.** *(substitui "aportes não são despesas")* Um aporte é registrado como despesa em uma categoria da classe Investimento. Ele entra no resultado (RN-26), porque é dinheiro que deixou de estar disponível. Nos totais do período, porém, aparece à parte, como **investido no período**, e não se soma aos gastos fixos e variáveis.
   - **RN-28a — Saldo acumulado.** O resultado de um período passa para o seguinte:
     - **saldo anterior** de um período = saldo acumulado ao fim do período anterior;
-    - **saldo acumulado** = saldo inicial (RN-44a) + receitas recebidas − despesas pagas de todos os lançamentos com data até o fim do período;
+    - **saldo acumulado** = saldo inicial (RN-44a) + receitas recebidas − despesas pagas de todos os lançamentos com data de pagamento (RN-52a) até o fim do período;
     - **saldo acumulado projetado** = saldo acumulado + receitas pendentes − despesas pendentes com data até o fim do período, incluindo as atrasadas de períodos anteriores.
 
     O saldo é sempre recalculado a partir dos lançamentos: marcar como paga uma conta antiga muda o saldo do período dela e dos seguintes. Ele não representa o saldo bancário, mas se aproxima dele quando o saldo inicial é o saldo da conta no início do uso do app.
@@ -175,25 +175,34 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - **RN-50a — Progresso.** O topo mostra quantas despesas do período estão pagas e quanto falta pagar (ex.: "8 de 10 contas pagas · falta pagar R$ 450,00"). O progresso conta só despesas: é a lista das contas a pagar.
   - **RN-50b — A receber.** Receitas pendentes do período (ex.: salário lançado com antecedência, um pagamento que alguém ainda deve) aparecem numa seção à parte, "A receber", com o total. Sem receitas pendentes, a seção não aparece.
   - **RN-50c — Atrasadas de meses anteriores.** No período atual, as despesas e receitas pendentes de períodos anteriores aparecem num aviso recolhível ("3 contas atrasadas de meses anteriores"), e não misturadas à lista do mês, até serem marcadas. Ao navegar para um período passado, a tela mostra as contas daquele período, com as que ficaram pendentes marcadas como atrasadas.
-  - **RN-50d — Compras no cartão.** Enquanto as faturas (RN-53, RN-54) não existem, as compras no cartão aparecem uma a uma, como as demais despesas. Com as faturas, cada fatura que vence no período passa a aparecer como um único item, com o valor total e o check da fatura.
+  - **RN-50d — Faturas.** As compras no cartão não aparecem uma a uma: cada fatura que vence no período aparece como um único item, com o valor total e o check da fatura (RN-54). Tocar na fatura mostra as compras dela.
 
   O painel mostra o mesmo progresso no bloco de contas, com um atalho para esta aba (RN-48).
 
-## Cartões de crédito *(em parte: cadastro e escolha do cartão; faturas, limite e parcelamento planejados)*
+## Cartões de crédito
 
-- **RN-51 — Cadastro.** Um cartão tem nome (1 a 30 caracteres, único entre os cartões do usuário), limite (valor > 0, até o máximo de RN-20), dia de fechamento (1 a 31), dia de vencimento (1 a 31) e cor da paleta (RN-16a). Cada usuário pode ter até 10 cartões. Nos meses em que o dia de fechamento ou de vencimento não existe, usa-se o último dia do mês. Os cartões são gerenciados nas configurações da conta (RN-47a). O limite e as datas já são pedidos no cadastro, embora só sejam usados nas faturas (RN-53 a RN-55).
-- **RN-52 — Compra no cartão.** Uma despesa com a forma de pagamento **Crédito** (RN-67) exige um cartão do usuário que não esteja arquivado (RN-57); as demais formas não têm cartão. Ao editar uma compra antiga feita num cartão que depois foi arquivado, o cartão é mantido. Receitas não podem ter cartão. A compra conta no orçamento e nos gastos pela data da compra, como qualquer despesa.
-- **RN-53 — Fatura.** Cada cartão tem uma fatura por mês, identificada pelo mês de vencimento. A compra entra na fatura que fecha depois da data da compra: compras feitas **no dia do fechamento ou depois** vão para a fatura seguinte. A fatura vence no dia de vencimento do mesmo mês do fechamento se esse dia for depois do fechamento, ou do mês seguinte caso contrário.
+- **RN-51 — Cadastro.** Um cartão tem nome (1 a 30 caracteres, único entre os cartões do usuário), limite (valor > 0, até o máximo de RN-20), dia de fechamento (1 a 31), dia de vencimento (1 a 31) e cor da paleta (RN-16a). Cada usuário pode ter até 10 cartões. Nos meses em que o dia de fechamento ou de vencimento não existe, usa-se o último dia do mês. Os cartões são gerenciados nas configurações da conta (RN-47a). O limite e as datas são usados nas faturas (RN-53 a RN-55).
+- **RN-52 — Compra no cartão.** Uma despesa com a forma de pagamento **Crédito** (RN-67) exige um cartão do usuário que não esteja arquivado (RN-57); as demais formas não têm cartão. Ao editar uma compra antiga feita num cartão que depois foi arquivado, o cartão é mantido. Receitas não podem ter cartão.
+  - **RN-52a — Data da compra e data do pagamento.** Todo lançamento tem a **data** (quando a compra ou o recebimento aconteceu) e a **data de pagamento** (quando o dinheiro sai ou entra). À vista (Pix, débito, dinheiro, boleto), as duas são iguais. No cartão, a data de pagamento é o vencimento da fatura em que a compra entrou (RN-53). Cada tela usa a data que responde à sua pergunta:
+    - **"Quanto gastei no mês?"**, pela data da compra: a lista de lançamentos (RN-19), o orçamento (RN-31), os gastos por categoria, classe e forma de pagamento (RN-48, RN-71) e os "Gastos do mês" do painel;
+    - **"Quanto preciso pagar no mês?"**, pela data de pagamento: as Contas do mês (RN-50), o resultado e o projetado (RN-26, RN-27), o saldo acumulado (RN-28a) e o "A pagar no mês" do painel.
 
-  Exemplo: cartão que fecha dia 25 e vence dia 2. Uma compra em 24/11 entra na fatura que fecha em 25/11 e vence em 02/12. Uma compra em 25/11 vai para a fatura que fecha em 25/12 e vence em 02/01.
-- **RN-54 — Pagar a fatura.** O check fica na fatura, e não em cada compra. Marcar a fatura como paga marca como pagas todas as compras e parcelas dela, e desmarcar volta todas para pendente. Se uma compra for registrada em uma fatura já paga, a fatura volta a ficar pendente, e o sistema avisa.
-- **RN-55 — Limite do cartão.** Utilizado = soma das compras e parcelas de faturas não pagas, inclusive as parcelas futuras. Disponível = limite − utilizado (pode ser negativo). O cartão é sinalizado como **atenção** e **estourado** pelos mesmos níveis do orçamento (RN-32a).
-- **RN-56 — Parcelamento.** Uma compra no cartão pode ser parcelada de 2 a 24 vezes. O usuário informa o valor total, e o sistema cria uma parcela por mês:
-  - valor de cada parcela = total ÷ número de parcelas, em centavos; os centavos que sobram da divisão vão para a primeira parcela (R$ 100,00 em 3x = R$ 33,34 + R$ 33,33 + R$ 33,33);
-  - a parcela *i* tem a data da compra mais *i* − 1 meses (com a regra de último dia de RN-25b) e entra na fatura correspondente a essa data (RN-53);
-  - a descrição recebe a indicação da parcela, ex.: "Geladeira (3/10)";
-  - as parcelas podem passar do limite de 12 meses de RN-23.
-  - **RN-56a — Parcelas ligadas.** As parcelas de uma compra formam um parcelamento e são editadas em conjunto: alterar a categoria ou a descrição de uma parcela altera todas. Para mudar valor, número de parcelas, data ou cartão, o usuário exclui o parcelamento e o registra de novo. Excluir uma parcela exclui o parcelamento inteiro, inclusive as parcelas de faturas já pagas, com confirmação.
+    Exemplo: num cartão que vence dia 2, uma compra de R$ 200 em 24/11 conta nos gastos de novembro e no "a pagar" de dezembro, quando a fatura vence.
+- **RN-53 — Fatura.** Cada cartão tem uma fatura por mês, identificada pelo mês de vencimento ("fatura de janeiro"). A compra entra na fatura que fecha **no dia da compra ou depois**: compras feitas até o dia do fechamento, inclusive, entram na fatura que fecha nesse dia; compras feitas depois do fechamento vão para a fatura seguinte. A fatura vence no dia de vencimento do mesmo mês do fechamento se esse dia for depois do fechamento, ou do mês seguinte caso contrário.
+
+  Exemplo: cartão que fecha dia 23 e vence dia 2. Uma compra em 23/11 entra na fatura que fecha em 23/11 e vence em 02/12 (fatura de dezembro). Uma compra em 24/11 vai para a fatura que fecha em 23/12 e vence em 02/01 (fatura de janeiro).
+  - **RN-53a — A fatura fica gravada.** Cada compra guarda a fatura em que entrou. Alterar o dia de fechamento ou de vencimento do cartão vale só para as compras registradas depois; as faturas existentes não mudam. Editar a data ou o cartão de uma compra recalcula a fatura dela.
+  - **RN-53b — Situação da fatura.** **Aberta** até o dia do fechamento; **fechada** depois dele, enquanto não paga; **atrasada** se não estiver paga depois do vencimento; **paga** quando todas as compras dela estão pagas.
+- **RN-54 — Pagar a fatura.** O check fica na fatura, e não em cada compra: as compras no cartão não podem ser marcadas uma a uma. Marcar a fatura como paga marca como pagas todas as compras e parcelas dela, e desmarcar volta todas para pendente. Uma compra nova nasce pendente; se entrar numa fatura já paga, a fatura volta a ficar pendente, e o sistema avisa.
+- **RN-55 — Limite do cartão.** Utilizado = soma das compras e parcelas ainda não pagas do cartão, inclusive as de faturas futuras. Disponível = limite − utilizado (pode ser negativo). O cartão é sinalizado como **atenção** e **estourado** pelos mesmos níveis do orçamento (RN-32a).
+- **RN-56 — Parcelamento.** Uma despesa, em qualquer forma de pagamento, pode ser parcelada em 2 ou mais vezes, até o máximo técnico de 480 parcelas (40 anos, para caber um financiamento imobiliário). O usuário informa **o valor da parcela ou o valor total**, e o sistema calcula o outro:
+  - parcela informada: total = parcela × número de parcelas (o total já inclui os juros, se houver);
+  - total informado: parcela = total ÷ número de parcelas, em centavos; os centavos que sobram da divisão vão para a primeira parcela (R$ 100,00 em 3x = R$ 33,34 + R$ 33,33 + R$ 33,33);
+  - a parcela *i* tem a data da primeira mais *i* − 1 meses (com a regra de último dia de RN-25b); no cartão, cada parcela entra na fatura correspondente à sua data (RN-53);
+  - cada parcela é exibida com a indicação "(3/36)" depois da descrição;
+  - as parcelas podem passar do limite de 12 meses de RN-23, mas a primeira segue o limite;
+  - as parcelas têm valor fixo (como na tabela Price). Parcelas que mudam todo mês (SAC) ficam para depois.
+  - **RN-56a — Parcelas ligadas.** As parcelas de uma compra formam um parcelamento. **Alterar uma parcela altera todas**: valor da parcela, categoria, descrição, forma de pagamento, cartão e data (as demais acompanham, mês a mês). A situação (RN-22) é de cada parcela; no cartão, segue a fatura (RN-54). Para mudar o número de parcelas, o usuário exclui o parcelamento e o registra de novo. **Excluir uma parcela exclui o parcelamento inteiro**, com confirmação. Parcelas não podem ser repetidas (RN-25b).
 - **RN-57 — Arquivar cartão.** Um cartão sem compras pode ser excluído. Um cartão com compras não pode ser excluído, apenas **arquivado**: deixa de aparecer para novas compras, mas mantém o histórico e as faturas. Um cartão arquivado pode ser reativado.
 
 ## Despesas compartilhadas *(planejada)*

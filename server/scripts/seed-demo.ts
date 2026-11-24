@@ -11,6 +11,7 @@
 import { lastDayOfMonth, maxEntryDate, parseDate, toDateString, today } from '../../shared/period.js';
 import { hashPassword } from '../src/lib/crypto.js';
 import { prisma } from '../src/lib/prisma.js';
+import { installmentAmounts, installmentDates, invoiceFor } from '../../shared/invoice.js';
 import { categoryNameKey, DEFAULT_CATEGORIES } from '../src/modules/categories/categories.constants.js';
 import { defaultPaymentMethodsData } from '../src/modules/payment-methods/payment-methods.constants.js';
 
@@ -146,6 +147,11 @@ async function main() {
   const cardId = (card: Payment['card']) =>
     card ? user.cards.find((c) => c.name === (card === 'main' ? 'Cartão principal' : 'Cartão da loja'))!.id : null;
   const categoryId = (type: string, name: string) => user.categories.find((c) => c.type === type && c.name === name)!.id;
+  // RN-52a, RN-53: no cartão, a data de pagamento é o vencimento da fatura.
+  const payDateOf = (date: string, card: number | null) => {
+    const found = user.cards.find((c) => c.id === card);
+    return found ? invoiceFor(date, found.closingDay, found.dueDay).due : date;
+  };
 
   const rows = [];
   for (let offset = -5; offset <= 2; offset++) {
@@ -164,7 +170,9 @@ async function main() {
           ? (({ method, card }) => ({ paymentMethodId: methodId(method), cardId: cardId(card) }))(paymentOf(draft.description))
           : { paymentMethodId: null, cardId: null }),
         // RN-22: o que já passou está pago; o futuro, pendente. As exceções abaixo criam atrasados.
+        // No cartão, vale o vencimento da fatura (RN-54): faturas vencidas foram pagas.
         paid: date <= todayValue,
+        payDate: date,
       });
     }
   }
@@ -181,7 +189,39 @@ async function main() {
     if (forgotten) row.paid = false;
   }
 
+  for (const row of rows) {
+    row.payDate = payDateOf(row.date, row.cardId);
+    if (row.cardId !== null) row.paid = row.payDate < todayValue;
+  }
   await prisma.entry.createMany({ data: rows });
+
+  // Parcelamentos (RN-56): uma geladeira em 10x no cartão e um notebook em 12x no boleto, com juros.
+  const installment = async (opts: { description: string; category: string; first: string; count: number; amountCents: number; mode: 'TOTAL' | 'INSTALLMENT'; method: Payment['method']; card?: Payment['card'] }) => {
+    const group = await prisma.installment.create({ data: { userId: user.id, count: opts.count } });
+    const amounts = installmentAmounts(opts.amountCents, opts.count, opts.mode);
+    const card = cardId(opts.card);
+    await prisma.entry.createMany({
+      data: installmentDates(opts.first, opts.count).map((date, i) => {
+        const payDate = payDateOf(date, card);
+        return {
+          userId: user.id,
+          type: 'EXPENSE',
+          amountCents: amounts[i]!,
+          date,
+          payDate,
+          categoryId: categoryId('EXPENSE', opts.category),
+          description: opts.description,
+          paymentMethodId: methodId(opts.method),
+          cardId: card,
+          paid: payDate < todayValue,
+          installmentId: group.id,
+          installmentNumber: i + 1,
+        };
+      }),
+    });
+  };
+  await installment({ description: 'Geladeira', category: 'Compras', first: toDateString(now.year, now.month - 3, 14), count: 10, amountCents: 459000, mode: 'TOTAL', method: 'CREDIT', card: 'main' });
+  await installment({ description: 'Notebook', category: 'Educação', first: toDateString(now.year, now.month - 1, 8), count: 12, amountCents: 32990, mode: 'INSTALLMENT', method: 'BOLETO' });
 
   // Orçamento e metas (RN-29 a RN-34), valendo desde o primeiro mês da demonstração.
   // Lazer recebe um limite apertado, e Alimentação um perto do limite, para mostrar os alertas.
@@ -206,7 +246,7 @@ async function main() {
   });
 
   const dates = rows.map((r) => r.date).sort();
-  const overdue = rows.filter((r) => !r.paid && r.date < todayValue).length;
+  const overdue = rows.filter((r) => !r.paid && r.payDate < todayValue).length;
   console.log(`Conta de demonstração criada: ${EMAIL} / ${PASSWORD}`);
   console.log(`${rows.length} lançamentos de ${dates[0]} a ${dates.at(-1)}, ${overdue} ${overdue === 1 ? 'atrasado' : 'atrasados'}.`);
 }

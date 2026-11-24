@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { installmentAmounts, invoiceFor } from '../../../shared/invoice';
 import { addMonths, formatDate, maxEntryDate, MIN_ENTRY_DATE, today } from '../../../shared/period';
 import { api } from '../lib/api';
 import { EXPENSE_CLASS_LABELS, EXPENSE_CLASSES, TYPE_LABELS, type Category, type CategoryType } from '../lib/categories';
@@ -25,9 +26,19 @@ export type Entry = {
   paymentMethodId: number | null;
   /** RN-52: cartão, só nas compras no crédito. */
   cardId: number | null;
+  /** RN-52a: quando o dinheiro sai; no cartão, o vencimento da fatura. */
+  payDate: string;
+  /** RN-56: "parcela número de total". */
+  installment: { id: number; number: number; count: number } | null;
 };
 
-type Draft = Omit<Entry, 'id' | 'overdue'>;
+type Draft = Omit<Entry, 'id' | 'overdue' | 'payDate' | 'installment'>;
+
+/** Descrição com a indicação da parcela (RN-56): "Geladeira (3/10)". */
+export function entryLabel(entry: Entry, fallback: string): string {
+  const base = entry.description || fallback;
+  return entry.installment ? `${base} (${entry.installment.number}/${entry.installment.count})` : base;
+}
 
 /** RN-22: sugestão pela data, até o usuário mexer no check. */
 const suggestedPaid = (date: string) => date <= today();
@@ -45,8 +56,8 @@ type Props = {
   methods: PaymentMethod[];
   cards: Card[];
   onClose: () => void;
-  /** Chamado após salvar, com a data do lançamento (para mostrar o período certo). */
-  onSaved: (date: string) => void;
+  /** Chamado após salvar, com a data do lançamento (para mostrar o período certo) e um aviso, se houver. */
+  onSaved: (date: string, warning?: string) => void;
 };
 
 export function EntrySheet({ mode, categories, methods, cards, onClose, onSaved }: Props) {
@@ -118,10 +129,23 @@ function FormSheet({
 }) {
   const [draft, setDraft] = useState<Draft>(() => initialDraft(mode, categories, methods, cards));
   const original = mode.kind === 'edit' ? mode.entry : null;
+  // RN-56: parcelar só na criação; a parcela editada vale para todas (RN-56a).
+  const [installments, setInstallments] = useState<{ enabled: boolean; count: string; mode: 'TOTAL' | 'INSTALLMENT' }>({
+    enabled: false,
+    count: '2',
+    mode: 'TOTAL',
+  });
+  const parcel = original?.installment ?? null;
+  const count = Number(installments.count);
+  const validCount = Number.isInteger(count) && count >= 2 && count <= 480;
+  const parcelling = mode.kind === 'create' && draft.type === 'EXPENSE' && installments.enabled;
   // RN-70 e RN-57: na edição, a despesa antiga mantém a "Não informada" e o cartão arquivado.
   const methodOptions = methods.filter((m) => m.selectable || m.id === original?.paymentMethodId);
   const cardOptions = cards.filter((c) => !c.archived || c.id === original?.cardId);
-  const isCredit = methods.find((m) => m.id === draft.paymentMethodId)?.kind === 'CREDIT';
+  const isCredit = draft.type === 'EXPENSE' && methods.find((m) => m.id === draft.paymentMethodId)?.kind === 'CREDIT';
+  const chosenCard = isCredit ? cards.find((c) => c.id === draft.cardId) : undefined;
+  // RN-53: mostra em que fatura a compra (ou a primeira parcela) vai entrar, com a mesma conta do servidor.
+  const invoice = chosenCard && draft.date ? invoiceFor(draft.date, chosenCard.closingDay, chosenCard.dueDay) : null;
   // Na criação e na cópia, o check acompanha a data até o usuário mexer nele (RN-22).
   // Na edição, mudar a data não muda a situação (RN-24).
   const [paidTouched, setPaidTouched] = useState(mode.kind === 'edit');
@@ -138,13 +162,13 @@ function FormSheet({
       description: draft.description?.trim() || null,
       paymentMethodId: isExpense ? draft.paymentMethodId : null,
       cardId: isExpense && isCredit ? draft.cardId : null,
+      ...(parcelling && { installments: { count, mode: installments.mode } }),
     });
-    if (mode.kind === 'edit') {
-      await api(`/entries/${mode.entry.id}`, { method: 'PUT', body });
-    } else {
-      await api('/entries', { method: 'POST', body });
-    }
-    onSaved(draft.date);
+    const result =
+      mode.kind === 'edit'
+        ? await api<{ warning?: string }>(`/entries/${mode.entry.id}`, { method: 'PUT', body })
+        : await api<{ warning?: string }>('/entries', { method: 'POST', body });
+    onSaved(draft.date, result.warning);
   });
 
   function changeType(type: CategoryType) {
@@ -159,6 +183,11 @@ function FormSheet({
   return (
     <Sheet title={title} onClose={onClose}>
       {mode.kind === 'duplicate' && <p className="muted small">Ajuste o que precisar e salve para criar a cópia.</p>}
+      {parcel && (
+        <Alert kind="warning">
+          Parcela {parcel.number} de {parcel.count}. As alterações valem para todas as parcelas desta compra.
+        </Alert>
+      )}
       {save.error && <Alert kind="error">{save.error}</Alert>}
       <form className="form" onSubmit={save.onSubmit} noValidate>
         <div className="segmented segmented--type" role="radiogroup" aria-label="Tipo">
@@ -177,11 +206,21 @@ function FormSheet({
         </div>
 
         <MoneyInput
-          label="Valor"
+          label={parcel || (parcelling && installments.mode === 'INSTALLMENT') ? 'Valor da parcela' : parcelling ? 'Valor total' : 'Valor'}
           cents={draft.amountCents}
           onChange={(amountCents) => setDraft((d) => ({ ...d, amountCents }))}
           error={save.fieldErrors.amountCents}
         />
+
+        {mode.kind === 'create' && draft.type === 'EXPENSE' && (
+          <InstallmentFields
+            value={installments}
+            onChange={setInstallments}
+            amountCents={draft.amountCents}
+            error={save.fieldErrors['installments.count']}
+            valid={validCount}
+          />
+        )}
 
         {/* RN-19: texto livre para lembrar do que se trata. Fica logo depois do valor para não passar despercebido. */}
         <Field
@@ -198,32 +237,35 @@ function FormSheet({
           label="Data"
           type="date"
           min={MIN_ENTRY_DATE}
-          max={maxEntryDate()}
+          max={parcel ? undefined : maxEntryDate()}
           value={draft.date}
           onChange={(e) => changeDate(e.target.value)}
           error={save.fieldErrors.date}
         />
 
-        <label className="choice">
-          <input
-            type="checkbox"
-            checked={draft.paid}
-            onChange={(e) => {
-              setPaidTouched(true);
-              setDraft((d) => ({ ...d, paid: e.target.checked }));
-            }}
-          />
-          <span>
-            <strong>{PAID_LABELS[draft.type]}</strong>
-            <span className="muted small">
-              {draft.paid
-                ? `Já ${draft.type === 'EXPENSE' ? 'saiu da' : 'entrou na'} sua conta.`
-                : draft.date < today()
-                  ? 'Pendente com data passada: vai aparecer como atrasado.'
-                  : `Fica pendente até você marcar como ${PAID_LABELS[draft.type].toLowerCase()}.`}
+        {/* RN-54: no cartão, o check é o da fatura. */}
+        {!isCredit && (
+          <label className="choice">
+            <input
+              type="checkbox"
+              checked={draft.paid}
+              onChange={(e) => {
+                setPaidTouched(true);
+                setDraft((d) => ({ ...d, paid: e.target.checked }));
+              }}
+            />
+            <span>
+              <strong>{PAID_LABELS[draft.type]}</strong>
+              <span className="muted small">
+                {draft.paid
+                  ? `Já ${draft.type === 'EXPENSE' ? 'saiu da' : 'entrou na'} sua conta.`
+                  : draft.date < today()
+                    ? 'Pendente com data passada: vai aparecer como atrasado.'
+                    : `Fica pendente até você marcar como ${PAID_LABELS[draft.type].toLowerCase()}.`}
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        )}
 
         <div className="field">
           <div className="field__label-row">
@@ -292,6 +334,12 @@ function FormSheet({
               </select>
             )}
             {save.fieldErrors.cardId && <span className="field__error">{save.fieldErrors.cardId}</span>}
+            {invoice && (
+              <span className="muted small">
+                {parcelling ? 'A 1ª parcela entra' : 'Entra'} na fatura que fecha em {formatDate(invoice.closing)} e vence em{' '}
+                <strong>{formatDate(invoice.due)}</strong>. O pagamento é marcado na fatura, nas Contas do mês.
+              </span>
+            )}
           </div>
         )}
 
@@ -304,9 +352,11 @@ function FormSheet({
             <button className="button button--ghost" type="button" onClick={() => onDuplicate(mode.entry)}>
               Duplicar
             </button>
-            <button className="button button--ghost" type="button" onClick={onRepeat}>
-              Repetir nos próximos meses
-            </button>
+            {!parcel && (
+              <button className="button button--ghost" type="button" onClick={onRepeat}>
+                Repetir nos próximos meses
+              </button>
+            )}
             <button className="button button--danger-ghost" type="button" onClick={onDelete}>
               Excluir
             </button>
@@ -368,8 +418,17 @@ function DeleteSheet({ entry, onBack, onClose, onDone }: { entry: Entry; onBack:
       {remove.error && <Alert kind="error">{remove.error}</Alert>}
       <form className="form" onSubmit={remove.onSubmit}>
         <p>
-          Excluir {TYPE_LABELS[entry.type].singular} de <strong>{formatMoney(entry.amountCents)}</strong> em {formatDate(entry.date)}?
-          Essa ação não pode ser desfeita.
+          {entry.installment ? (
+            <>
+              Excluir o parcelamento inteiro, com as <strong>{entry.installment.count} parcelas</strong> de{' '}
+              <strong>{formatMoney(entry.amountCents)}</strong>? Essa ação não pode ser desfeita.
+            </>
+          ) : (
+            <>
+              Excluir {TYPE_LABELS[entry.type].singular} de <strong>{formatMoney(entry.amountCents)}</strong> em {formatDate(entry.date)}?
+              Essa ação não pode ser desfeita.
+            </>
+          )}
         </p>
         <button className="button button--danger" type="submit" disabled={remove.submitting}>
           {remove.submitting ? 'Excluindo…' : 'Excluir'}
@@ -401,5 +460,75 @@ function CategoryOptions({ categories }: { categories: Category[] }) {
         );
       })}
     </>
+  );
+}
+
+/** RN-56: parcelar a despesa. O usuário informa a parcela ou o total, e o outro é calculado. */
+function InstallmentFields({
+  value,
+  onChange,
+  amountCents,
+  error,
+  valid,
+}: {
+  value: { enabled: boolean; count: string; mode: 'TOTAL' | 'INSTALLMENT' };
+  onChange: (value: { enabled: boolean; count: string; mode: 'TOTAL' | 'INSTALLMENT' }) => void;
+  amountCents: number;
+  error?: string;
+  valid: boolean;
+}) {
+  const count = Number(value.count);
+  const amounts = value.enabled && valid && amountCents > 0 ? installmentAmounts(amountCents, count, value.mode) : null;
+  const total = amounts?.reduce((sum, a) => sum + a, 0) ?? 0;
+  return (
+    <div className="installments">
+      <label className="choice">
+        <input type="checkbox" checked={value.enabled} onChange={(e) => onChange({ ...value, enabled: e.target.checked })} />
+        <span>
+          <strong>Parcelado</strong>
+          <span className="muted small">Cria uma parcela por mês, ligadas entre si.</span>
+        </span>
+      </label>
+      {value.enabled && (
+        <div className="installments__fields">
+          <Field
+            label="Número de parcelas"
+            type="number"
+            inputMode="numeric"
+            min={2}
+            max={480}
+            value={value.count}
+            onChange={(e) => onChange({ ...value, count: e.target.value })}
+            error={error ?? (valid ? undefined : 'Escolha de 2 a 480 parcelas.')}
+          />
+          <div className="segmented" role="radiogroup" aria-label="O valor informado é">
+            {(
+              [
+                ['TOTAL', 'Informei o total'],
+                ['INSTALLMENT', 'Informei a parcela'],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={value.mode === mode}
+                className="segmented__option"
+                onClick={() => onChange({ ...value, mode })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {amounts && (
+            <p className="preview small">
+              {count} × {formatMoney(amounts[amounts.length - 1]!)}
+              {amounts[0] !== amounts[amounts.length - 1] && ` (a 1ª de ${formatMoney(amounts[0]!)})`} = <strong>{formatMoney(total)}</strong>
+              {value.mode === 'INSTALLMENT' && ' no total, com os juros'}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

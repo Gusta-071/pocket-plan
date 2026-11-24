@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, formatDate, parseDate, periodContaining, shiftPeriod, today } from '../../../shared/period';
 import type { User } from '../auth/AuthContext';
-import { EntrySheet, PAID_LABELS, type Entry, type EntrySheetMode } from '../components/EntrySheet';
+import { EntrySheet, entryLabel, PAID_LABELS, type Entry, type EntrySheetMode } from '../components/EntrySheet';
 import { CheckButton } from '../components/CheckButton';
 import { Alert } from '../components/Form';
 import { PeriodNav } from '../components/PeriodNav';
@@ -90,8 +90,12 @@ export function EntriesPage({ user }: { user: User }) {
     if (categoryId !== 'ALL' && next !== 'ALL' && byId.get(categoryId)?.type !== next) setCategoryId('ALL');
   }
 
-  function handleSaved(date: string) {
+  // RN-54: aviso quando uma compra reabre uma fatura já paga.
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function handleSaved(date: string, warning?: string) {
     setSheet(null);
+    setNotice(warning ?? null);
     const target = offsetOf(date, user);
     if (target !== offset) setOffset(target);
     else void load();
@@ -252,6 +256,7 @@ export function EntriesPage({ user }: { user: User }) {
         </div>
         <div className="entries__main">
           {(loadError || categoriesError) && <Alert kind="error">{loadError ?? categoriesError}</Alert>}
+          {notice && <Alert kind="warning">{notice}</Alert>}
           {!data && !loadError && (
             <p className="muted" role="status">
               Carregando…
@@ -271,17 +276,32 @@ export function EntriesPage({ user }: { user: User }) {
               <ul className="list">
                 {group.entries.map((entry) => {
                   const category = byId.get(entry.categoryId);
-                  const label = entry.description || category?.name || 'lançamento';
+                  const label = entryLabel(entry, category?.name ?? 'lançamento');
                   const paidLabel = PAID_LABELS[entry.type].toLowerCase();
                   return (
                     <li key={entry.id} className="entry-row">
-                      <CheckButton
-                        checked={entry.paid}
-                        overdue={entry.overdue}
-                        label={`${label}: ${paidLabel}`}
-                        doneLabel={paidLabel}
-                        onToggle={() => void togglePaid(entry)}
-                      />
+                      {entry.cardId !== null ? (
+                        // RN-54: no cartão, o check é o da fatura, nas Contas do mês.
+                        <span
+                          className={`card-mark ${entry.paid ? 'card-mark--paid' : ''}`}
+                          title={entry.paid ? 'Paga com a fatura' : `Na fatura que vence em ${formatDate(entry.payDate)}`}
+                          aria-label={entry.paid ? 'Paga com a fatura' : `Na fatura que vence em ${formatDate(entry.payDate)}`}
+                          role="img"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                            <rect x="2" y="5" width="20" height="14" rx="2" />
+                            <path d="M2 10h20" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <CheckButton
+                          checked={entry.paid}
+                          overdue={entry.overdue}
+                          label={`${label}: ${paidLabel}`}
+                          doneLabel={paidLabel}
+                          onToggle={() => void togglePaid(entry)}
+                        />
+                      )}
                       <button type="button" className="list__item entry" onClick={() => setSheet({ kind: 'edit', entry })}>
                         <span
                           className="color-dot"
@@ -291,13 +311,17 @@ export function EntriesPage({ user }: { user: User }) {
                         <span className="entry__text">
                           <span className="list__label">{label}</span>
                           <span className="muted small">
-                            {[entry.description ? category?.name : null, paymentLabel(entry, methods ?? [], cards ?? [])]
+                            {[
+                              entry.description ? category?.name : null,
+                              paymentLabel(entry, methods ?? [], cards ?? []),
+                              entry.cardId !== null ? `fatura ${formatDate(entry.payDate).slice(0, 5)}` : null,
+                            ]
                               .filter(Boolean)
                               .join(' · ')}
                             {entry.overdue ? (
                               <span className="badge badge--danger">Atrasado</span>
                             ) : (
-                              !entry.paid && <span className="badge">Pendente</span>
+                              !entry.paid && entry.cardId === null && <span className="badge">Pendente</span>
                             )}
                           </span>
                         </span>

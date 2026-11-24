@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { formatDate } from '../../../shared/period';
+import { entryLabel, type Entry } from '../components/EntrySheet';
 import { Alert, Field } from '../components/Form';
 import { MoneyInput } from '../components/MoneyInput';
 import { Sheet } from '../components/Sheet';
@@ -15,7 +17,24 @@ const MAX_CARDS = 10; // RN-51
 type Editing =
   | { kind: 'method'; method?: PaymentMethod }
   | { kind: 'card'; card?: Card }
+  | { kind: 'invoices'; card: Card }
   | null;
+
+type Invoice = {
+  due: string;
+  closing: string;
+  status: 'OPEN' | 'CLOSED' | 'OVERDUE' | 'PAID';
+  totalCents: number;
+  paidCents: number;
+  entries: Entry[];
+};
+
+const INVOICE_STATUS: Record<Invoice['status'], { label: string; badge: string }> = {
+  OPEN: { label: 'Aberta', badge: '' },
+  CLOSED: { label: 'Fechada', badge: 'badge--warning' },
+  OVERDUE: { label: 'Atrasada', badge: 'badge--danger' },
+  PAID: { label: 'Paga', badge: 'badge--success' },
+};
 
 /** Formas de pagamento (RN-67 a RN-70) e cartões (RN-51, RN-57), dentro dos ajustes (RN-47a). */
 export function PaymentsPage() {
@@ -110,8 +129,9 @@ export function PaymentsPage() {
                           {card.name} {card.archived && <span className="badge">Arquivado</span>}
                         </span>
                         <span className="muted small">
-                          Limite {formatMoney(card.limitCents)} · fecha dia {card.closingDay} · vence dia {card.dueDay}
+                          Fecha dia {card.closingDay} · vence dia {card.dueDay}
                         </span>
+                        <CardUsage card={card} />
                       </span>
                       <span className="list__action" aria-hidden="true">
                         Editar
@@ -129,7 +149,15 @@ export function PaymentsPage() {
       {editing?.kind === 'method' && methods && (
         <MethodSheet method={editing.method} methods={methods} onClose={() => setEditing(null)} onSaved={closeAndReload} />
       )}
-      {editing?.kind === 'card' && <CardSheet card={editing.card} onClose={() => setEditing(null)} onSaved={closeAndReload} />}
+      {editing?.kind === 'card' && (
+        <CardSheet
+          card={editing.card}
+          onClose={() => setEditing(null)}
+          onSaved={closeAndReload}
+          onInvoices={(card) => setEditing({ kind: 'invoices', card })}
+        />
+      )}
+      {editing?.kind === 'invoices' && <InvoicesSheet card={editing.card} onClose={closeAndReload} />}
     </>
   );
 }
@@ -253,7 +281,17 @@ function DeleteMethod({
 }
 
 /** RN-51, RN-57: cadastro, edição, arquivamento e exclusão de cartões. */
-function CardSheet({ card, onClose, onSaved }: { card?: Card; onClose: () => void; onSaved: () => void }) {
+function CardSheet({
+  card,
+  onClose,
+  onSaved,
+  onInvoices,
+}: {
+  card?: Card;
+  onClose: () => void;
+  onSaved: () => void;
+  onInvoices: (card: Card) => void;
+}) {
   const [name, setName] = useState(card?.name ?? '');
   const [color, setColor] = useState<CategoryColor>(card?.color ?? 'purple');
   const [limitCents, setLimitCents] = useState(card?.limitCents ?? 0);
@@ -329,6 +367,9 @@ function CardSheet({ card, onClose, onSaved }: { card?: Card; onClose: () => voi
         </button>
         {card && (
           <>
+            <button className="button button--ghost" type="button" onClick={() => onInvoices(card)}>
+              Ver faturas
+            </button>
             <button
               className="button button--ghost"
               type="button"
@@ -352,6 +393,108 @@ function CardSheet({ card, onClose, onSaved }: { card?: Card; onClose: () => voi
           </>
         )}
       </form>
+    </Sheet>
+  );
+}
+
+/** RN-55: limite usado e disponível, com o alerta do orçamento. */
+function CardUsage({ card }: { card: Card }) {
+  const percent = Math.min(100, Math.round((card.usedCents / card.limitCents) * 100));
+  return (
+    <span className={`card-usage card-usage--${card.usageStatus.toLowerCase()}`}>
+      <span className="meter" aria-hidden="true">
+        <span className="meter__fill" style={{ width: `${percent}%` }} />
+      </span>
+      <span className="small muted">
+        Usado {formatMoney(card.usedCents)} de {formatMoney(card.limitCents)} ·{' '}
+        {card.availableCents >= 0 ? `disponível ${formatMoney(card.availableCents)}` : <span className="amount--expense">passou {formatMoney(-card.availableCents)}</span>}
+        {card.usageStatus === 'WARNING' && <span className="badge badge--warning">Atenção</span>}
+        {card.usageStatus === 'EXCEEDED' && <span className="badge badge--danger">Estourado</span>}
+      </span>
+    </span>
+  );
+}
+
+/** RN-53, RN-53b, RN-54: as faturas do cartão, com as compras e o pagamento de cada uma. */
+function InvoicesSheet({ card, onClose }: { card: Card; onClose: () => void }) {
+  const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      const result = await api<{ invoices: Invoice[] }>(`/cards/${card.id}/invoices`);
+      setInvoices(result.invoices);
+      // Abre a primeira fatura não paga, que é a que interessa.
+      setOpen((current) => current ?? result.invoices.find((i) => i.status !== 'PAID' && i.status !== 'OPEN')?.due ?? result.invoices[0]?.due ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar as faturas.');
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, [card.id]);
+
+  async function toggle(invoice: Invoice) {
+    try {
+      await api(`/cards/${card.id}/invoices/${invoice.due}`, { method: 'PATCH', body: JSON.stringify({ paid: invoice.status !== 'PAID' }) });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível atualizar a fatura.');
+    }
+  }
+
+  return (
+    <Sheet title={`Faturas · ${card.name}`} onClose={onClose}>
+      {error && <Alert kind="error">{error}</Alert>}
+      {!invoices && !error && (
+        <p className="muted" role="status">
+          Carregando…
+        </p>
+      )}
+      {invoices && invoices.length === 0 && <p className="muted small">Nenhuma compra neste cartão ainda.</p>}
+      {invoices && invoices.length > 0 && (
+        <ul className="invoices">
+          {invoices.map((invoice) => {
+            const status = INVOICE_STATUS[invoice.status];
+            const expanded = open === invoice.due;
+            return (
+              <li key={invoice.due} className="invoice card">
+                <button type="button" className="invoice__header" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : invoice.due)}>
+                  <span className="entry__text">
+                    <span className="list__label">
+                      Vence em {formatDate(invoice.due)} <span className={`badge ${status.badge}`}>{status.label}</span>
+                    </span>
+                    <span className="muted small">
+                      Fecha em {formatDate(invoice.closing)} · {invoice.entries.length} {invoice.entries.length === 1 ? 'compra' : 'compras'}
+                    </span>
+                  </span>
+                  <strong>{formatMoney(invoice.totalCents)}</strong>
+                </button>
+                {expanded && (
+                  <div className="invoice__body">
+                    <ul className="list">
+                      {invoice.entries.map((entry) => (
+                        <li key={entry.id} className="invoice__entry">
+                          <span>
+                            {entryLabel(entry, 'Compra')}
+                            <span className="muted small"> · {formatDate(entry.date)}</span>
+                          </span>
+                          <span className="amount amount--expense">{formatMoney(entry.amountCents)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button className={`button ${invoice.status === 'PAID' ? 'button--ghost' : ''}`} type="button" onClick={() => void toggle(invoice)}>
+                      {invoice.status === 'PAID' ? 'Marcar como pendente' : `Pagar fatura de ${formatMoney(invoice.totalCents)}`}
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Sheet>
   );
 }

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { currentUser, requireAuth } from '../auth/auth.session.js';
-import { entryIdSchema, entrySchema, listEntriesQuerySchema, paidSchema, repeatSchema } from './entries.schemas.js';
+import { entryIdSchema, entrySchema, listEntriesQuerySchema, paidSchema, repeatSchema, updateEntrySchema } from './entries.schemas.js';
 import * as entries from './entries.service.js';
 
 export const entryRoutes = Router();
@@ -12,12 +12,11 @@ entryRoutes.get('/', async (req, res) => {
 });
 
 entryRoutes.post('/', async (req, res) => {
-  res.status(201).json({ entry: await entries.createEntry(currentUser(res).id, entrySchema.parse(req.body)) });
+  res.status(201).json(await entries.createEntry(currentUser(res).id, entrySchema.parse(req.body)));
 });
 
 entryRoutes.put('/:id', async (req, res) => {
-  const entry = await entries.updateEntry(currentUser(res).id, entryIdSchema.parse(req.params.id), entrySchema.parse(req.body));
-  res.json({ entry });
+  res.json(await entries.updateEntry(currentUser(res).id, entryIdSchema.parse(req.params.id), updateEntrySchema.parse(req.body)));
 });
 
 entryRoutes.patch('/:id/paid', async (req, res) => {
