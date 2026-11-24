@@ -11,6 +11,8 @@ export type User = {
   monthStartDay: number;
   periodNaming: PeriodNaming;
   theme: Theme;
+  /** RN-44a: ponto de partida do saldo acumulado, em centavos (pode ser negativo). */
+  initialBalanceCents: number;
 };
 
 type AuthState = {

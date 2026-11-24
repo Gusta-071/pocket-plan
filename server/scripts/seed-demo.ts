@@ -4,7 +4,7 @@
  *
  * Conta: demo@pocket-plan.local / demo1234
  *
- * As datas são relativas a hoje (4 meses para trás e 2 para a frente), então a demonstração
+ * As datas são relativas a hoje (5 meses para trás e 2 para a frente), então a demonstração
  * continua atual com o passar do tempo. Os valores "aleatórios" usam uma semente fixa:
  * rodar de novo gera os mesmos dados.
  */
@@ -35,7 +35,7 @@ function monthEntries(offset: number): Draft[] {
   const income = (category: string, reais: number, day: number, description: string): Draft => ({ category, type: 'INCOME', reais, day, description });
 
   const entries: Draft[] = [
-    income('Salário', 5800, 5, 'Salário'),
+    income('Salário', 7200, 5, 'Salário'),
     expense('Moradia', 1650, 10, 'Aluguel'),
     expense('Moradia', 480, 10, 'Condomínio'),
     expense('Contas e serviços', between(140, 230), 15, 'Conta de luz'),
@@ -84,6 +84,7 @@ async function main() {
       email: EMAIL,
       passwordHash: await hashPassword(PASSWORD),
       emailVerifiedAt: new Date(),
+      initialBalanceCents: 250000, // R$ 2.500,00 na conta quando começou a usar (RN-44a)
       categories: { create: DEFAULT_CATEGORIES.map((c) => ({ ...c, nameKey: categoryNameKey(c.name) })) },
     },
     include: { categories: true },
@@ -91,7 +92,7 @@ async function main() {
   const categoryId = (type: string, name: string) => user.categories.find((c) => c.type === type && c.name === name)!.id;
 
   const rows = [];
-  for (let offset = -4; offset <= 2; offset++) {
+  for (let offset = -5; offset <= 2; offset++) {
     const monthStart = parseDate(toDateString(now.year, now.month + offset, 1));
     for (const draft of monthEntries(offset)) {
       const date = toDateString(monthStart.year, monthStart.month, Math.min(draft.day, lastDayOfMonth(monthStart.year, monthStart.month)));

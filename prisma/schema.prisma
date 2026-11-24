@@ -21,6 +21,8 @@ model User {
   monthStartDay Int     @default(1)
   /// AUTO | START_MONTH | END_MONTH (RN-12).
   periodNaming String   @default("AUTO")
+  /// Ponto de partida do saldo acumulado, em centavos; pode ser negativo (RN-28a, RN-44a).
+  initialBalanceCents Int @default(0)
   /// LIGHT | DARK | SYSTEM (RN-45).
   theme        String   @default("SYSTEM")
   /// Preenchido quando o usuário confirma o e-mail (RN-09f, RN-09i).

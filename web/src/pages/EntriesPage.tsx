@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, formatDate, parseDate, periodContaining, shiftPeriod, today } from '../../../shared/period';
 import type { User } from '../auth/AuthContext';
 import { EntrySheet, PAID_LABELS, type Entry, type EntrySheetMode } from '../components/EntrySheet';
+import { CheckButton } from '../components/CheckButton';
 import { Alert } from '../components/Form';
+import { PeriodNav } from '../components/PeriodNav';
 import { api } from '../lib/api';
 import { CATEGORY_COLORS, type Category, type CategoryType } from '../lib/categories';
 import { formatMoney, formatSigned } from '../lib/money';
@@ -127,25 +129,7 @@ export function EntriesPage({ user }: { user: User }) {
         <h1>Lançamentos</h1>
       </div>
 
-      <nav className="period-nav" aria-label="Período">
-        <button type="button" className="period-nav__arrow" aria-label="Período anterior" onClick={() => setOffset((o) => o - 1)}>
-          ‹
-        </button>
-        <div className="period-nav__label">
-          <strong>{period.label}</strong>
-          <span className="muted small">
-            {formatDate(period.start)} a {formatDate(period.end)}
-          </span>
-        </div>
-        <button type="button" className="period-nav__arrow" aria-label="Próximo período" onClick={() => setOffset((o) => o + 1)}>
-          ›
-        </button>
-      </nav>
-      {offset !== 0 && (
-        <button type="button" className="link-button period-nav__today" onClick={() => setOffset(0)}>
-          Voltar ao período atual
-        </button>
-      )}
+      <PeriodNav period={period} offset={offset} onChange={setOffset} />
 
       {totals && type !== 'ALL' && (
         // Filtrando um tipo só, "resultado" não faz sentido: mostra o pago, o pendente e o total desse tipo.
@@ -253,19 +237,13 @@ export function EntriesPage({ user }: { user: User }) {
               const paidLabel = PAID_LABELS[entry.type].toLowerCase();
               return (
                 <li key={entry.id} className="entry-row">
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={entry.paid}
-                    aria-label={`${label}: ${paidLabel}`}
-                    title={entry.paid ? `Marcar como pendente` : `Marcar como ${paidLabel}`}
-                    className={`check ${entry.paid ? 'check--on' : ''} ${entry.overdue ? 'check--overdue' : ''}`}
-                    onClick={() => void togglePaid(entry)}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M5 12.5l4.5 4.5L19 7.5" />
-                    </svg>
-                  </button>
+                  <CheckButton
+                    checked={entry.paid}
+                    overdue={entry.overdue}
+                    label={`${label}: ${paidLabel}`}
+                    doneLabel={paidLabel}
+                    onToggle={() => void togglePaid(entry)}
+                  />
                   <button type="button" className="list__item entry" onClick={() => setSheet({ kind: 'edit', entry })}>
                     <span
                       className="color-dot"

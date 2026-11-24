@@ -36,6 +36,8 @@ export type PublicUser = {
   monthStartDay: number;
   periodNaming: PeriodNaming;
   theme: Theme;
+  /** RN-44a */
+  initialBalanceCents: number;
 };
 
 type UserRow = {
@@ -46,6 +48,7 @@ type UserRow = {
   monthStartDay: number;
   periodNaming: string;
   theme: string;
+  initialBalanceCents: number;
 };
 
 export function toPublicUser(user: UserRow): PublicUser {
@@ -57,6 +60,7 @@ export function toPublicUser(user: UserRow): PublicUser {
     monthStartDay: user.monthStartDay,
     periodNaming: user.periodNaming as PeriodNaming,
     theme: user.theme as Theme,
+    initialBalanceCents: user.initialBalanceCents,
   };
 }
 

@@ -53,6 +53,18 @@ describe('preferências (RN-44, RN-45)', () => {
     expect(response.status).toBe(400);
   });
 
+  it('saldo inicial começa em zero e aceita valores negativos (RN-44a)', async () => {
+    const patch = (initialBalanceCents: unknown) =>
+      request(app).patch('/api/settings/preferences').set('Cookie', cookie).send({ initialBalanceCents });
+
+    expect((await me()).body.user.initialBalanceCents).toBe(0);
+    expect((await patch(-150000)).body.user.initialBalanceCents).toBe(-150000);
+    expect((await patch(1_000_000_000)).status).toBe(200);
+    expect((await patch(1_000_000_001)).status).toBe(400);
+    expect((await patch(-1_000_000_001)).status).toBe(400);
+    expect((await patch(10.5)).status).toBe(400);
+  });
+
   it('recusa opções desconhecidas', async () => {
     const patch = (body: object) => request(app).patch('/api/settings/preferences').set('Cookie', cookie).send(body);
     expect((await patch({ theme: 'BLUE' })).status).toBe(400);
