@@ -30,7 +30,9 @@ npm run dev
 
 Abra http://localhost:5173. A API roda em http://localhost:3333, e o Vite encaminha as chamadas `/api` para ela.
 
-Para ver as telas com dados, rode `npm run db:seed` e entre com **demo@pocket-plan.local** / **demo1234**. A conta tem cerca de 7 meses de lançamentos, com alguns pendentes e atrasados, e é recriada do zero a cada execução.
+Para ver as telas com dados, rode `npm run db:seed` e entre com **demo@pocket-plan.local** / **demo1234**. A conta tem cerca de 8 meses de lançamentos e saldo inicial de R$ 2.500,00, com alguns pendentes e atrasados, e é recriada do zero a cada execução.
+
+O assistente do painel usa um modelo de linguagem local pelo [Ollama](https://ollama.com). Com o Ollama instalado e aberto, baixe o modelo uma vez com `ollama pull qwen2.5:1.5b-instruct`. Sem ele, o resto do app funciona normalmente e o assistente aparece desativado, explicando o que falta.
 
 Sem `SMTP_HOST` no `.env`, os e-mails de redefinição de senha não são enviados: o link aparece no console da API.
 

@@ -46,6 +46,13 @@ export function addDays(value: string, days: number): string {
   return toDateString(year, month, day + days);
 }
 
+/** Dias de `from` até `to` (negativo se `to` vem antes). */
+export function daysBetween(from: string, to: string): number {
+  const a = parseDate(from);
+  const b = parseDate(to);
+  return Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000);
+}
+
 /** Último dia do mês (1–12). */
 export function lastDayOfMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();

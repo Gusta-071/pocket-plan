@@ -11,9 +11,10 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **Situação por check (RN-22, implementada).** Pago/recebido passa a ser marcado pelo usuário, e não mais calculado pela data. Uma conta vencida e não marcada fica **atrasada** (RN-22a).
 - **Classe da despesa (RN-14a).** Cada categoria de despesa passa a ser **Fixa**, **Variável** ou **Investimento**. Entra a categoria padrão "Investimentos" (RN-15).
 - **Investimentos simplificados (RN-28).** Aportes viram despesas da classe Investimento. A carteira com rendimento (RN-35 a RN-41) foi adiada.
-- **Saldo acumulado (RN-28a, RN-44a).** O resultado de cada período passa para o seguinte, a partir de um saldo inicial.
+- **Saldo acumulado (RN-28a, RN-44a, implementado).** O resultado de cada período passa para o seguinte, a partir de um saldo inicial.
 - **Orçamento por classe e meta de investimento (RN-29a, RN-29b).**
-- **Novas seções:** Painel do período (RN-48, RN-49), Contas do mês (RN-50), Cartões de crédito (RN-51 a RN-57) e Despesas compartilhadas (RN-58 a RN-65).
+- **Novas seções:** Painel do período (RN-48, RN-49; implementado em parte), Contas do mês (RN-50), Cartões de crédito (RN-51 a RN-57) e Despesas compartilhadas (RN-58 a RN-65).
+- **Assistente com IA (RN-66, implementado).** Lançar receitas e despesas conversando, sempre com confirmação.
 - **Ajustes ligados a essas seções:** RN-04, RN-09, RN-17, RN-18, RN-24, RN-25a, RN-25b, RN-26, RN-27, RN-31 e RN-47.
 
 ## Convenções gerais
@@ -117,7 +118,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **RN-26 — Resultado realizado.** Resultado = receitas **recebidas** − despesas **pagas** do período financeiro, considerando a data dos lançamentos. Pode ser negativo. Despesas de todas as classes entram no cálculo, inclusive Investimento (RN-28).
 - **RN-27 — Resultado projetado.** Resultado projetado = resultado realizado + receitas pendentes − despesas pendentes do período. É exibido separadamente do resultado realizado.
 - **RN-28 — Investimentos.** *(planejada; substitui "aportes não são despesas")* Um aporte é registrado como despesa em uma categoria da classe Investimento. Ele entra no resultado (RN-26), porque é dinheiro que deixou de estar disponível. Nos totais do período, porém, aparece à parte, como **investido no período**, e não se soma aos gastos fixos e variáveis.
-  - **RN-28a — Saldo acumulado.** *(planejada)* O resultado de um período passa para o seguinte:
+  - **RN-28a — Saldo acumulado.** O resultado de um período passa para o seguinte:
     - **saldo anterior** de um período = saldo acumulado ao fim do período anterior;
     - **saldo acumulado** = saldo inicial (RN-44a) + receitas recebidas − despesas pagas de todos os lançamentos com data até o fim do período;
     - **saldo acumulado projetado** = saldo acumulado + receitas pendentes − despesas pendentes com data até o fim do período, incluindo as atrasadas de períodos anteriores.
@@ -141,7 +142,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **RN-33 — Definição.** O usuário pode definir uma meta de economia por período (valor > 0). A vigência segue a mesma regra do orçamento (RN-30).
 - **RN-34 — Avaliação.** A meta é **atingida** quando o resultado realizado do período (RN-26) é maior ou igual à meta. Durante o período, o sistema mostra também se o resultado projetado (RN-27) atinge a meta.
 
-## Painel do período *(planejada)*
+## Painel do período *(em parte: falta o que depende de classes, orçamento e metas)*
 
 - **RN-48 — Painel.** A tela inicial mostra o período atual, com navegação para os anteriores e os seguintes (como na lista de lançamentos):
   - saldo anterior, receitas, gastos fixos, gastos variáveis, investido, resultado realizado e projetado, e saldo acumulado (RN-26 a RN-28a);
@@ -207,6 +208,15 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - Ao sair ou ao excluir o grupo, os lançamentos pessoais ligados (RN-64) continuam existindo como lançamentos comuns, sem ligação.
   - Nas despesas antigas do grupo, quem saiu aparece como "Ex-membro".
 
+## Assistente com IA
+
+- **RN-66 — Lançar conversando.** No painel, o usuário descreve receitas e despesas em texto livre ("paguei 45 no almoço", "aluguei uma casa por R$ 2.000 todo dia 10"), e um modelo de linguagem local propõe os lançamentos correspondentes: tipo, valor, data, categoria, descrição, situação (RN-22) e quantas vezes repetir (RN-25b). Se faltar algo essencial, como o valor, o assistente pergunta em vez de inventar.
+  - **RN-66a — Nada sem confirmação.** O assistente só propõe. Cada proposta aparece com os detalhes e os botões Salvar e Descartar, e só é salva quando o usuário confirma, pelas mesmas validações do formulário (RN-19 a RN-25d).
+  - **RN-66b — Propostas conferidas.** Antes de mostrar, o sistema confere cada proposta: o valor precisa estar escrito na conversa (se não estiver, a proposta é descartada e o assistente pergunta o valor, para que nada seja inventado); valor e data fora dos limites (RN-20, RN-23) descartam a proposta, e o usuário é avisado de quantas foram descartadas; categoria inexistente, de outro usuário ou do tipo errado (RN-21) é trocada pela categoria "Outras" do tipo; se o usuário já tem um lançamento com a mesma descrição, a categoria dele é usada; repetições que passariam do limite de datas são reduzidas às que cabem.
+  - **RN-66e — Conversão feita pelo sistema.** O modelo só interpreta a frase: tipo, valor em reais, a expressão de data, a categoria (escolhida entre as do usuário), a descrição, se foi dito que está pago e quantas vezes repete. O sistema converte o resto de forma exata: o valor em centavos; "hoje", "ontem", "anteontem", "amanhã", "DD/MM" e "dia N" em datas ("dia N" de algo que se repete e cujo dia já passou neste mês começa no mês seguinte; de um gasto único, é o dia N deste mês); e a situação: com um lançamento só na mensagem, expressões claras como "ainda não paguei", "vence" e "vou pagar" (pendente) ou "paguei" e "recebi" (pago) valem sobre o que o modelo entendeu; sem informação, vale a sugestão pela data (RN-22).
+  - **RN-66c — Limite de uso.** Cada usuário pode enviar até 20 mensagens ao assistente a cada 10 minutos.
+  - **RN-66d — Privacidade.** A conversa fica só no navegador e não é armazenada pelo pocket-plan. As mensagens, a data de hoje e os nomes das categorias do usuário são interpretados por um modelo de linguagem pequeno que roda no próprio servidor (Ollama), sem envio a serviços externos. Sem o modelo local disponível, o assistente aparece desativado e a interface explica o que falta.
+
 ## Investimentos *(adiada)*
 
 Nesta entrega, investimentos são tratados de forma simplificada, como despesas da classe Investimento (RN-28) com meta mensal (RN-29b). As regras abaixo descrevem a carteira com cálculo de rendimento, que fica para depois.
@@ -227,7 +237,7 @@ Nesta entrega, investimentos são tratados de forma simplificada, como despesas 
 - **RN-42 — Nome.** O usuário pode alterar o nome a qualquer momento, com as mesmas regras do cadastro (RN-05). O e-mail é exibido, mas não pode ser alterado nesta entrega.
 - **RN-43 — Alteração de senha.** Para alterar a senha, o usuário informa a senha atual e a nova duas vezes. A nova senha segue RN-07 e deve ser diferente da atual. Após a alteração, as demais sessões da conta são encerradas; a sessão em uso continua ativa.
 - **RN-44 — Mês financeiro.** O dia de início (RN-10) e o nome do período (RN-12) são alterados nas configurações, que mostram uma prévia do período atual com a opção escolhida.
-  - **RN-44a — Saldo inicial.** *(planejada)* O usuário pode informar um saldo inicial (padrão: R$ 0,00; pode ser negativo, com o mesmo limite de valor de RN-20), usado como ponto de partida do saldo acumulado (RN-28a). Alterá-lo recalcula o saldo de todos os períodos.
+  - **RN-44a — Saldo inicial.** O usuário pode informar um saldo inicial (padrão: R$ 0,00; pode ser negativo, com o mesmo limite de valor de RN-20), usado como ponto de partida do saldo acumulado (RN-28a). Alterá-lo recalcula o saldo de todos os períodos.
 - **RN-45 — Tema.** O usuário escolhe o tema da interface: **claro**, **escuro** ou **automático** (segue o tema do aparelho). O padrão é automático. A escolha fica salva na conta e vale em todos os aparelhos.
 - **RN-46 — Sair de todos os aparelhos.** O usuário pode encerrar todas as sessões da conta, inclusive a atual.
 - **RN-47 — Exclusão da conta.** O usuário pode excluir a própria conta, informando a senha atual e confirmando a ação. A exclusão é definitiva: apaga a conta e todos os seus dados (categorias, lançamentos, orçamentos, metas e cartões) e encerra todas as sessões.

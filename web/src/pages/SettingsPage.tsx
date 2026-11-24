@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { formatDate, periodContaining, today, type PeriodNaming } from '../../../shared/period';
 import { useAuth, type User } from '../auth/AuthContext';
 import { Alert, Field } from '../components/Form';
+import { MoneyInput } from '../components/MoneyInput';
 import { PasswordStrength } from '../components/PasswordStrength';
 import { Sheet } from '../components/Sheet';
 import { api } from '../lib/api';
@@ -16,6 +17,7 @@ export function SettingsPage({ user }: { user: User }) {
       <div className="settings">
         <ProfileSection user={user} />
         <PeriodSection user={user} />
+        <InitialBalanceSection user={user} />
         <ThemeSection user={user} />
         <PasswordSection />
         <AccountSection />
@@ -134,6 +136,43 @@ function PeriodSection({ user }: { user: User }) {
 
         <button className="button" type="submit" disabled={save.submitting || unchanged}>
           {save.submitting ? 'Salvando…' : 'Salvar mês financeiro'}
+        </button>
+      </form>
+    </Section>
+  );
+}
+
+/** RN-44a: ponto de partida do saldo acumulado (RN-28a). */
+function InitialBalanceSection({ user }: { user: User }) {
+  const saveUser = useSaveUser();
+  const [cents, setCents] = useState(Math.abs(user.initialBalanceCents));
+  const [negative, setNegative] = useState(user.initialBalanceCents < 0);
+  const [saved, setSaved] = useState(false);
+  const value = negative ? -cents : cents;
+  const save = useSubmit(async () => {
+    setSaved(false);
+    await saveUser('/settings/preferences', { initialBalanceCents: value });
+    setSaved(true);
+  });
+
+  return (
+    <Section
+      title="Saldo inicial"
+      description="Quanto você tinha na conta quando começou a usar o pocket-plan. O saldo acumulado do painel parte desse valor."
+    >
+      {saved && <Alert kind="success">Saldo inicial atualizado.</Alert>}
+      {save.error && <Alert kind="error">{save.error}</Alert>}
+      <form className="form" onSubmit={save.onSubmit} noValidate>
+        <MoneyInput label="Saldo inicial" cents={cents} onChange={setCents} error={save.fieldErrors.initialBalanceCents} />
+        <label className="choice">
+          <input type="checkbox" checked={negative} onChange={(e) => setNegative(e.target.checked)} />
+          <span>
+            <strong>Saldo negativo</strong>
+            <span className="muted small">Marque se a conta estava no vermelho (cheque especial).</span>
+          </span>
+        </label>
+        <button className="button" type="submit" disabled={save.submitting || value === user.initialBalanceCents}>
+          {save.submitting ? 'Salvando…' : 'Salvar saldo inicial'}
         </button>
       </form>
     </Section>
