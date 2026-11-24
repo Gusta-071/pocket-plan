@@ -17,16 +17,6 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href: '/categorias',
-    label: 'Categorias',
-    icon: (
-      <>
-        <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4z" />
-        <circle cx="16.5" cy="16.5" r="3.5" />
-      </>
-    ),
-  },
-  {
     href: '/configuracoes',
     label: 'Ajustes',
     icon: (
@@ -37,6 +27,11 @@ const NAV_ITEMS = [
     ),
   },
 ];
+
+/** A seção fica marcada também nas telas dentro dela (ex.: categorias, dentro dos ajustes). */
+function isCurrent(href: string, path: string): boolean {
+  return href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
+}
 
 /** Estrutura da área logada: barra do topo e navegação (no topo no PC, embaixo no celular). */
 export function AppLayout({ user, children }: { user: User; children: ReactNode }) {
@@ -61,7 +56,7 @@ export function AppLayout({ user, children }: { user: User; children: ReactNode 
               key={item.href}
               href={item.href}
               className="nav__item"
-              aria-current={path === item.href ? 'page' : undefined}
+              aria-current={isCurrent(item.href, path) ? 'page' : undefined}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
                 {item.icon}

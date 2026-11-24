@@ -6,7 +6,8 @@ import { MoneyInput } from '../components/MoneyInput';
 import { PasswordStrength } from '../components/PasswordStrength';
 import { Sheet } from '../components/Sheet';
 import { api } from '../lib/api';
-import { navigate } from '../lib/router';
+import { CATEGORIES_PATH } from '../components/ManageCategoriesLink';
+import { Link, navigate } from '../lib/router';
 import { applyTheme, type Theme } from '../lib/theme';
 import { useSubmit } from '../lib/useSubmit';
 
@@ -16,6 +17,7 @@ export function SettingsPage({ user }: { user: User }) {
       <h1>Configurações</h1>
       <div className="settings">
         <ProfileSection user={user} />
+        <CategoriesSection />
         <PeriodSection user={user} />
         <InitialBalanceSection user={user} />
         <ThemeSection user={user} />
@@ -33,6 +35,17 @@ function Section({ title, description, children }: { title: string; description?
       {description && <p className="muted small">{description}</p>}
       {children}
     </section>
+  );
+}
+
+/** RN-47a: as categorias ficam dentro dos ajustes. */
+function CategoriesSection() {
+  return (
+    <Section title="Categorias" description="Crie, renomeie e organize as categorias de receitas e despesas, com a classe de cada despesa.">
+      <Link href={CATEGORIES_PATH} className="button button--ghost settings__link">
+        Gerenciar categorias
+      </Link>
+    </Section>
   );
 }
 

@@ -76,7 +76,7 @@ function Routes() {
     <AppLayout user={user}>
       {path === '/lancamentos' ? (
         <EntriesPage user={user} />
-      ) : path === '/categorias' ? (
+      ) : path === '/configuracoes/categorias' || path === '/categorias' ? (
         <CategoriesPage />
       ) : path === '/configuracoes' ? (
         <SettingsPage user={user} />
