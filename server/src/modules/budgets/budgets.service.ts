@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { periodContaining, today, type Period, type PeriodNaming } from '../../../../shared/period.js';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import {
@@ -86,11 +87,14 @@ export async function getBudgets(userId: number, date: string) {
 
 type Target = { kind: BudgetKind; categoryId?: number; expenseClass?: string };
 
+/** O banco ou uma transação em andamento: permite gravar o limite junto com a categoria. */
+type Db = Prisma.TransactionClient;
+
 /**
  * Grava um valor a partir de hoje (RN-30). Duas alterações no mesmo dia ficam num só registro:
  * o histórico guarda o valor de cada dia, e não cada clique.
  */
-async function record(userId: number, target: Target, amountCents: number | null) {
+async function record(userId: number, target: Target, amountCents: number | null, db: Db = prisma) {
   const where = {
     userId,
     kind: target.kind,
@@ -98,9 +102,9 @@ async function record(userId: number, target: Target, amountCents: number | null
     expenseClass: target.expenseClass ?? null,
     validFrom: today(),
   };
-  const sameDay = await prisma.budget.findFirst({ where, orderBy: { id: 'desc' } });
-  if (sameDay) await prisma.budget.update({ where: { id: sameDay.id }, data: { amountCents } });
-  else await prisma.budget.create({ data: { ...where, amountCents } });
+  const sameDay = await db.budget.findFirst({ where, orderBy: { id: 'desc' } });
+  if (sameDay) await db.budget.update({ where: { id: sameDay.id }, data: { amountCents } });
+  else await db.budget.create({ data: { ...where, amountCents } });
 }
 
 /** RN-29, RN-29a, RN-29b, RN-33: define ou remove um limite ou uma meta. */
@@ -118,8 +122,11 @@ export async function setBudget(userId: number, input: z.infer<typeof setBudgetS
   return getBudgets(userId, today());
 }
 
-/** RN-17: uma categoria que passa para Investimento perde o limite, a partir do período atual. */
-export async function removeCategoryLimit(userId: number, categoryId: number) {
-  const rows = await prisma.budget.findMany({ where: { userId, kind: 'CATEGORY_LIMIT', categoryId } });
-  if (effectiveAmount(rows, today()) !== null) await record(userId, { kind: 'CATEGORY_LIMIT', categoryId }, null);
+/**
+ * Define ou remove o limite de uma categoria a partir de hoje, sem gravar nada se o valor não muda.
+ * Usado pela categoria, dentro da mesma transação em que ela é salva (RN-17, RN-29).
+ */
+export async function setCategoryLimit(db: Db, userId: number, categoryId: number, amountCents: number | null) {
+  const rows = await db.budget.findMany({ where: { userId, kind: 'CATEGORY_LIMIT', categoryId } });
+  if (effectiveAmount(rows, today()) !== amountCents) await record(userId, { kind: 'CATEGORY_LIMIT', categoryId }, amountCents, db);
 }

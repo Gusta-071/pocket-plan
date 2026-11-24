@@ -4,7 +4,7 @@ import { Alert, Field } from '../components/Form';
 import { MoneyInput } from '../components/MoneyInput';
 import { Sheet } from '../components/Sheet';
 import { api, ApiError } from '../lib/api';
-import { saveBudget, useBudgets, type LimitedClass } from '../lib/budgets';
+import { useBudgets, type LimitedClass } from '../lib/budgets';
 import {
   CATEGORY_COLORS,
   EXPENSE_CLASS_LABELS,
@@ -221,21 +221,13 @@ function CategorySheet({ type, category, siblings = [], currentLimit = null, onC
   const losesLimit = currentLimit !== null && expenseClass === 'INVESTMENT';
 
   const save = useSubmit(async () => {
-    let id: number;
+    // RN-29: o limite (opcional) vai junto com a categoria, numa operação só; R$ 0,00 quer dizer sem limite.
+    const limitChange = isLimited(expenseClass) && limit !== (currentLimit ?? 0) ? { limitCents: limit > 0 ? limit : null } : {};
     if (category) {
-      const changes = type === 'EXPENSE' && expenseClass ? { name, color, expenseClass } : { name, color };
+      const changes = type === 'EXPENSE' && expenseClass ? { name, color, expenseClass, ...limitChange } : { name, color };
       await api(`/categories/${category.id}`, { method: 'PATCH', body: JSON.stringify(changes) });
-      id = category.id;
     } else {
-      const created = await api<{ category: Category }>('/categories', {
-        method: 'POST',
-        body: JSON.stringify({ type, name, color, expenseClass }),
-      });
-      id = created.category.id;
-    }
-    // RN-29: o limite (opcional) é gravado depois da categoria; R$ 0,00 quer dizer sem limite.
-    if (isLimited(expenseClass) && limit !== (currentLimit ?? 0)) {
-      await saveBudget({ kind: 'CATEGORY_LIMIT', categoryId: id }, limit > 0 ? limit : null);
+      await api('/categories', { method: 'POST', body: JSON.stringify({ type, name, color, expenseClass, ...limitChange }) });
     }
     onSaved();
   });
@@ -292,7 +284,7 @@ function CategorySheet({ type, category, siblings = [], currentLimit = null, onC
         )}
         {isLimited(expenseClass) && (
           <div className="form__group">
-            <MoneyInput label="Limite mensal (opcional)" cents={limit} onChange={setLimit} error={save.fieldErrors.amountCents} />
+            <MoneyInput label="Limite mensal (opcional)" cents={limit} onChange={setLimit} error={save.fieldErrors.limitCents} />
             <p className="muted small">
               Deixe R$ 0,00 para não ter limite. Vale a partir deste mês; os meses anteriores continuam com o valor que tinham.
             </p>

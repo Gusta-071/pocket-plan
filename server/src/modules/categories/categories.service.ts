@@ -2,7 +2,7 @@ import type { z } from 'zod';
 import { Prisma } from '../../generated/prisma/client.js';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
-import { removeCategoryLimit } from '../budgets/budgets.service.js';
+import { setCategoryLimit } from '../budgets/budgets.service.js';
 import {
   categoryNameKey,
   MAX_CATEGORIES_PER_TYPE,
@@ -37,6 +37,16 @@ const nameInUse = () =>
     { path: 'name', message: 'Já existe uma categoria com este nome.' },
   ]);
 
+/** RN-29: só categorias de despesa fixas ou variáveis têm limite. */
+function checkLimitAllowed(limitCents: number | null | undefined, type: string, expenseClass: string | null) {
+  if (limitCents === undefined || limitCents === null) return;
+  if (type !== 'EXPENSE' || (expenseClass !== 'FIXED' && expenseClass !== 'VARIABLE')) {
+    throw new AppError(400, 'CATEGORY_WITHOUT_LIMIT', 'Só categorias de despesa fixas ou variáveis têm limite. Para investimentos, use a meta.', [
+      { path: 'limitCents', message: 'Só categorias de despesa fixas ou variáveis têm limite.' },
+    ]);
+  }
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
@@ -67,16 +77,22 @@ export async function createCategory(userId: number, input: z.infer<typeof creat
       `Você já tem ${MAX_CATEGORIES_PER_TYPE} categorias deste tipo, que é o máximo. Exclua ou reaproveite uma delas.`,
     );
   }
+  checkLimitAllowed(input.limitCents, input.type, input.expenseClass);
   try {
-    const category = await prisma.category.create({
-      data: {
-        userId,
-        type: input.type,
-        name: input.name,
-        nameKey: categoryNameKey(input.name),
-        color: input.color,
-        expenseClass: input.expenseClass,
-      },
+    // A categoria e o limite são gravados juntos: ou os dois, ou nenhum.
+    const category = await prisma.$transaction(async (tx) => {
+      const created = await tx.category.create({
+        data: {
+          userId,
+          type: input.type,
+          name: input.name,
+          nameKey: categoryNameKey(input.name),
+          color: input.color,
+          expenseClass: input.expenseClass,
+        },
+      });
+      if (input.limitCents) await setCategoryLimit(tx, userId, created.id, input.limitCents);
+      return created;
     });
     return toPublic(category);
   } catch (error) {
@@ -85,7 +101,7 @@ export async function createCategory(userId: number, input: z.infer<typeof creat
   }
 }
 
-/** RN-16, RN-17: altera nome, cor e/ou classe; o tipo nunca muda. */
+/** RN-16, RN-17, RN-29: altera nome, cor, classe e/ou limite; o tipo nunca muda. */
 export async function updateCategory(userId: number, id: number, input: z.infer<typeof updateCategorySchema>) {
   const current = await findOwned(userId, id);
   if (input.expenseClass !== undefined && current.type !== 'EXPENSE') {
@@ -93,17 +109,24 @@ export async function updateCategory(userId: number, id: number, input: z.infer<
       { path: 'expenseClass', message: 'Categorias de receita não têm classe.' },
     ]);
   }
+  const nextClass = input.expenseClass ?? current.expenseClass;
+  checkLimitAllowed(input.limitCents, current.type, nextClass);
   try {
-    const category = await prisma.category.update({
-      where: { id },
-      data: {
-        ...(input.name !== undefined && { name: input.name, nameKey: categoryNameKey(input.name) }),
-        ...(input.color !== undefined && { color: input.color }),
-        ...(input.expenseClass !== undefined && { expenseClass: input.expenseClass }),
-      },
+    // A categoria e o limite são gravados juntos: ou os dois, ou nenhum.
+    const category = await prisma.$transaction(async (tx) => {
+      const updated = await tx.category.update({
+        where: { id },
+        data: {
+          ...(input.name !== undefined && { name: input.name, nameKey: categoryNameKey(input.name) }),
+          ...(input.color !== undefined && { color: input.color }),
+          ...(input.expenseClass !== undefined && { expenseClass: input.expenseClass }),
+        },
+      });
+      // RN-17: investimento não tem limite, só meta (RN-29b).
+      if (nextClass === 'INVESTMENT' && current.expenseClass !== 'INVESTMENT') await setCategoryLimit(tx, userId, id, null);
+      else if (input.limitCents !== undefined) await setCategoryLimit(tx, userId, id, input.limitCents);
+      return updated;
     });
-    // RN-17: investimento não tem limite, só meta (RN-29b).
-    if (input.expenseClass === 'INVESTMENT' && current.expenseClass !== 'INVESTMENT') await removeCategoryLimit(userId, id);
     return toPublic(category);
   } catch (error) {
     if (isUniqueViolation(error)) throw nameInUse();
