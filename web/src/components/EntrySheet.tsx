@@ -15,10 +15,18 @@ export type Entry = {
   date: string;
   categoryId: number;
   description: string | null;
-  status: 'REALIZED' | 'PLANNED';
+  /** RN-22: pago (despesa) ou recebido (receita). */
+  paid: boolean;
+  /** RN-22a: pendente com data passada. */
+  overdue: boolean;
 };
 
-type Draft = Omit<Entry, 'id' | 'status'>;
+type Draft = Omit<Entry, 'id' | 'overdue'>;
+
+/** RN-22: sugestão pela data, até o usuário mexer no check. */
+const suggestedPaid = (date: string) => date <= today();
+
+export const PAID_LABELS = { EXPENSE: 'Pago', INCOME: 'Recebido' } as const;
 
 export type EntrySheetMode =
   | { kind: 'create'; type: CategoryType }
@@ -59,11 +67,12 @@ export function EntrySheet({ mode, categories, onClose, onSaved }: Props) {
 
 function initialDraft(mode: EntrySheetMode, categories: Category[]): Draft {
   if (mode.kind !== 'create') {
-    const { type, amountCents, date, categoryId, description } = mode.entry;
-    return { type, amountCents, date, categoryId, description };
+    const { type, amountCents, date, categoryId, description, paid } = mode.entry;
+    // RN-25a: a cópia recebe a situação sugerida pela data, como na criação.
+    return { type, amountCents, date, categoryId, description, paid: mode.kind === 'edit' ? paid : suggestedPaid(date) };
   }
   const first = categories.find((c) => c.type === mode.type);
-  return { type: mode.type, amountCents: 0, date: today(), categoryId: first?.id ?? 0, description: '' };
+  return { type: mode.type, amountCents: 0, date: today(), categoryId: first?.id ?? 0, description: '', paid: true };
 }
 
 function FormSheet({
@@ -81,7 +90,14 @@ function FormSheet({
   onDelete: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>(() => initialDraft(mode, categories));
+  // Na criação e na cópia, o check acompanha a data até o usuário mexer nele (RN-22).
+  // Na edição, mudar a data não muda a situação (RN-24).
+  const [paidTouched, setPaidTouched] = useState(mode.kind === 'edit');
   const options = categories.filter((c) => c.type === draft.type);
+
+  function changeDate(date: string) {
+    setDraft((d) => ({ ...d, date, ...(!paidTouched && date && { paid: suggestedPaid(date) }) }));
+  }
 
   const save = useSubmit(async () => {
     const body = JSON.stringify({ ...draft, description: draft.description?.trim() || null });
@@ -105,9 +121,6 @@ function FormSheet({
   return (
     <Sheet title={title} onClose={onClose}>
       {mode.kind === 'duplicate' && <p className="muted small">Ajuste o que precisar e salve para criar a cópia.</p>}
-      {mode.kind === 'edit' && mode.entry.status === 'PLANNED' && (
-        <p className="muted small">Este lançamento está previsto: vira realizado sozinho em {formatDate(mode.entry.date)}.</p>
-      )}
       {save.error && <Alert kind="error">{save.error}</Alert>}
       <form className="form" onSubmit={save.onSubmit} noValidate>
         <div className="segmented segmented--type" role="radiogroup" aria-label="Tipo">
@@ -138,10 +151,30 @@ function FormSheet({
           min={MIN_ENTRY_DATE}
           max={maxEntryDate()}
           value={draft.date}
-          onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
+          onChange={(e) => changeDate(e.target.value)}
           error={save.fieldErrors.date}
-          hint={draft.date > today() ? 'Data futura: o lançamento fica como previsto até o dia chegar.' : undefined}
         />
+
+        <label className="choice">
+          <input
+            type="checkbox"
+            checked={draft.paid}
+            onChange={(e) => {
+              setPaidTouched(true);
+              setDraft((d) => ({ ...d, paid: e.target.checked }));
+            }}
+          />
+          <span>
+            <strong>{PAID_LABELS[draft.type]}</strong>
+            <span className="muted small">
+              {draft.paid
+                ? `Já ${draft.type === 'EXPENSE' ? 'saiu da' : 'entrou na'} sua conta.`
+                : draft.date < today()
+                  ? 'Pendente com data passada: vai aparecer como atrasado.'
+                  : `Fica pendente até você marcar como ${PAID_LABELS[draft.type].toLowerCase()}.`}
+            </span>
+          </span>
+        </label>
 
         <div className="field">
           <label htmlFor="entry-category">Categoria</label>

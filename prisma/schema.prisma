@@ -103,7 +103,6 @@ model Category {
 }
 
 /// Lançamento de receita ou despesa (RN-19 a RN-25d).
-/// A situação (previsto/realizado) não é armazenada: é calculada pela data (RN-22).
 model Entry {
   id          Int      @id @default(autoincrement())
   userId      Int
@@ -118,6 +117,8 @@ model Entry {
   /// Restrict: uma categoria com lançamentos só sai movendo-os antes (RN-18).
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   description String?
+  /// Pago (despesa) ou recebido (receita), marcado pelo usuário (RN-22).
+  paid        Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

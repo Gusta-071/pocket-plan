@@ -8,7 +8,7 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 
 Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão implementadas.
 
-- **Situação por check (RN-22).** Pago/recebido passa a ser marcado pelo usuário, e não mais calculado pela data. Uma conta vencida e não marcada fica **atrasada** (RN-22a).
+- **Situação por check (RN-22, implementada).** Pago/recebido passa a ser marcado pelo usuário, e não mais calculado pela data. Uma conta vencida e não marcada fica **atrasada** (RN-22a).
 - **Classe da despesa (RN-14a).** Cada categoria de despesa passa a ser **Fixa**, **Variável** ou **Investimento**. Entra a categoria padrão "Investimentos" (RN-15).
 - **Investimentos simplificados (RN-28).** Aportes viram despesas da classe Investimento. A carteira com rendimento (RN-35 a RN-41) foi adiada.
 - **Saldo acumulado (RN-28a, RN-44a).** O resultado de cada período passa para o seguinte, a partir de um saldo inicial.
@@ -95,7 +95,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
 - **RN-19 — Campos.** Um lançamento tem tipo (receita ou despesa), valor, data, categoria, situação (RN-22) e descrição opcional (até 120 caracteres). Despesas podem indicar também um cartão de crédito (RN-52).
 - **RN-20 — Valor.** Maior que zero e no máximo R$ 10.000.000,00 por lançamento.
 - **RN-21 — Categoria compatível.** A categoria é obrigatória, deve pertencer ao usuário e ser do mesmo tipo do lançamento.
-- **RN-22 — Situação: pendente ou pago.** *(planejada; substitui a situação calculada pela data)* A situação de um lançamento é marcada pelo usuário com um check:
+- **RN-22 — Situação: pendente ou pago.** A situação de um lançamento é marcada pelo usuário com um check:
   - despesa: **pendente** ou **paga**;
   - receita: **pendente** ou **recebida**.
 
