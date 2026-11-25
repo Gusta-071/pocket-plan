@@ -2,29 +2,35 @@
 
 Este documento define as regras do domínio do pocket-plan. Cada regra tem um identificador (`RN-XX`) para ser referenciada no código, nos testes e nas discussões. Quando uma regra mudar, este documento deve ser atualizado junto com o código.
 
-**Status:** proposta para revisão — 24/11/2026.
+**Status:** versão da entrega — 25/11/2026. Todas as regras estão implementadas e testadas, exceto as marcadas como *(planejada)* ou *(adiada)*.
 
-## Mudanças desta revisão
+## Estado da implementação
 
-Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão implementadas.
+| Seção | Regras | Situação |
+| --- | --- | --- |
+| Conta de usuário, recuperação de senha e confirmação de e-mail | RN-05 a RN-09i | Implementada |
+| Mês financeiro | RN-10 a RN-13 | Implementada |
+| Categorias e classe da despesa | RN-14 a RN-18a | Implementada |
+| Lançamentos, situação por check, duplicar e repetir | RN-19 a RN-25d | Implementada |
+| Formas de pagamento | RN-67 a RN-71 | Implementada |
+| Resultado, investimentos e saldo acumulado | RN-26 a RN-28a | Implementada |
+| Orçamento, alertas e metas | RN-29 a RN-34 | Implementada |
+| Painel do período | RN-48, RN-49 | Implementada |
+| Contas do mês | RN-50 a RN-50d | Implementada |
+| Cartões de crédito: faturas, limite e parcelamento | RN-51 a RN-57 | Implementada |
+| Assistente com IA | RN-66 | Implementada (depende do Ollama na máquina) |
+| Configurações da conta | RN-42 a RN-47a | Implementada |
+| Despesas compartilhadas | RN-58 a RN-65 | *Planejada* ([issue #25](https://github.com/Gusta-071/pocket-plan/issues/25)) |
+| Carteira de investimentos com rendimento | RN-35 a RN-41 | *Adiada* (ver Decisões adiadas) |
 
-- **Situação por check (RN-22, implementada).** Pago/recebido passa a ser marcado pelo usuário, e não mais calculado pela data. Uma conta vencida e não marcada fica **atrasada** (RN-22a).
-- **Classe da despesa (RN-14a).** Cada categoria de despesa passa a ser **Fixa**, **Variável** ou **Investimento**, escolhida pelo usuário e obrigatória. As categorias padrão vêm com uma classe sugerida, e entram "Reserva de emergência" e "Investimentos" (RN-15).
-- **Investimentos simplificados (RN-28).** Aportes viram despesas da classe Investimento. A carteira com rendimento (RN-35 a RN-41) foi adiada.
-- **Saldo acumulado (RN-28a, RN-44a, implementado).** O resultado de cada período passa para o seguinte, a partir de um saldo inicial.
-- **Orçamento por classe e meta de investimento (RN-29a, RN-29b), com nível de atenção configurável (RN-32a).**
-- **Categorias e nível de atenção nos ajustes; metas no painel (RN-47a).**
-- **Novas seções:** Painel do período (RN-48, RN-49; implementado em parte), Contas do mês (RN-50), Cartões de crédito (RN-51 a RN-57) e Despesas compartilhadas (RN-58 a RN-65).
-- **Formas de pagamento (RN-67 a RN-71) e cartões de crédito com faturas, limite e parcelamento (RN-51 a RN-57).**
-- **Assistente com IA (RN-66, implementado).** Lançar receitas e despesas conversando, sempre com confirmação.
-- **Ajustes ligados a essas seções:** RN-04, RN-09, RN-17, RN-18, RN-24, RN-25a, RN-25b, RN-26, RN-27, RN-31 e RN-47.
+As regras citam umas às outras pelo identificador; os comentários do código e os nomes dos testes usam os mesmos identificadores, para que cada regra possa ser rastreada até a implementação e o teste que a verifica.
 
 ## Convenções gerais
 
 - **RN-01 — Moeda e precisão.** Todos os valores são em reais (BRL), com precisão de centavos. Internamente, valores monetários são armazenados como números inteiros de centavos (R$ 150,50 = `15050`), para evitar erros de arredondamento.
 - **RN-02 — Fuso horário e "hoje".** O sistema considera o fuso `America/Sao_Paulo`. "Hoje" é a data atual nesse fuso.
 - **RN-03 — Datas sem horário.** Lançamentos, compras, faturas e acertos têm apenas data (dia, mês e ano), sem horário.
-- **RN-04 — Isolamento de dados.** Cada usuário só consulta, cria, altera ou exclui os próprios dados. O servidor identifica o usuário pela sessão autenticada e nunca por um identificador enviado pelo cliente. A única exceção são os dados de grupos de despesas compartilhadas, visíveis aos membros do grupo (RN-60).
+- **RN-04 — Isolamento de dados.** Cada usuário só consulta, cria, altera ou exclui os próprios dados. O servidor identifica o usuário pela sessão autenticada e nunca por um identificador enviado pelo cliente. A única exceção serão os dados de grupos de despesas compartilhadas, visíveis aos membros do grupo (RN-60, *planejada*).
 
 ## Conta de usuário
 
@@ -91,7 +97,7 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - Se a categoria não tem lançamentos, ela é excluída.
   - Se tem lançamentos, o usuário escolhe outra categoria **do mesmo tipo** para recebê-los. Os lançamentos são movidos e a categoria é excluída em uma única operação: ou tudo acontece, ou nada.
   - O orçamento da categoria excluída (RN-29), se houver, é removido junto, e a confirmação avisa isso.
-  - Se a categoria é a categoria padrão de algum grupo (RN-64), o grupo passa a usar a categoria que recebeu os lançamentos ou, se não houve lançamentos, a primeira categoria de despesa em ordem alfabética.
+  - *(Planejada, com as despesas compartilhadas.)* Se a categoria é a categoria padrão de algum grupo (RN-64), o grupo passa a usar a categoria que recebeu os lançamentos ou, se não houve lançamentos, a primeira categoria de despesa em ordem alfabética.
   - **RN-18a — Mínimo por tipo.** O usuário mantém sempre pelo menos uma categoria de receita e uma de despesa. A última categoria de um tipo não pode ser excluída, apenas editada.
 
 ## Lançamentos (receitas e despesas)
@@ -270,7 +276,7 @@ Nesta entrega, investimentos são tratados de forma simplificada, como despesas 
 - **RN-45 — Tema.** O usuário escolhe o tema da interface: **claro**, **escuro** ou **automático** (segue o tema do aparelho). O padrão é automático. A escolha fica salva na conta e vale em todos os aparelhos.
 - **RN-46 — Sair de todos os aparelhos.** O usuário pode encerrar todas as sessões da conta, inclusive a atual.
 - **RN-47 — Exclusão da conta.** O usuário pode excluir a própria conta, informando a senha atual e confirmando a ação. A exclusão é definitiva: apaga a conta e todos os seus dados (categorias, lançamentos, orçamentos, metas e cartões) e encerra todas as sessões.
-  - Se o usuário tem saldo diferente de zero em algum grupo (RN-62), a exclusão é recusada, e o sistema indica quais grupos precisam ser acertados.
+  - *(Planejada, com as despesas compartilhadas.)* Se o usuário tem saldo diferente de zero em algum grupo (RN-62), a exclusão é recusada, e o sistema indica quais grupos precisam ser acertados.
   - Com os saldos zerados, o usuário sai de todos os grupos, como em RN-65.
 - **RN-47a — Categorias nos ajustes.** As categorias (RN-14 a RN-18) são gerenciadas dentro das configurações da conta, e não na navegação principal, porque são definidas uma vez e mudam pouco. O mesmo vale para o nível de atenção (RN-32a). Já as metas (RN-29b, RN-33), que o usuário ajusta com frequência, são editadas direto no painel. Para chegar às categorias sem passar pelos ajustes, há um atalho no campo de categoria do lançamento e nos gastos por categoria do painel.
 
@@ -278,6 +284,8 @@ Nesta entrega, investimentos são tratados de forma simplificada, como despesas 
 
 - **Alteração de e-mail (RN-42).** Exigiria confirmar o novo endereço; fica para depois.
 - **Recorrência automática.** Séries recorrentes (em que alterar uma ocorrência pode alterar as demais) ficam para depois. Nesta entrega, despesas e receitas fixas são cobertas por duplicar e repetir (RN-25a a RN-25d).
+- **Despesas compartilhadas (RN-58 a RN-65).** As regras estão definidas, mas a implementação ficou para depois da entrega, por ser a maior funcionalidade restante e depender de convites por e-mail entre contas ([issue #25](https://github.com/Gusta-071/pocket-plan/issues/25)).
+- **Parcelas variáveis (SAC).** O parcelamento (RN-56) usa parcelas de valor fixo, como na tabela Price; financiamentos em que a parcela diminui todo mês ficam para depois.
 - **Carteira de investimentos (RN-35 a RN-41).** Fica para depois. Se for retomada e o CDI histórico (RN-38) se mostrar complexo demais para o prazo, a alternativa é aplicar a taxa anual atual do CDI (série 4389) a todo o período, documentando a simplificação.
 - **Importar fatura e extrato.** A entrada automática de lançamentos fica para depois. Pela ordem de viabilidade:
   - arquivos CSV ou OFX exportados pelos bancos;
