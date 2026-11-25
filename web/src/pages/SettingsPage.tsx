@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { formatDate, periodContaining, today, type PeriodNaming } from '../../../shared/period';
 import { useAuth, type User } from '../auth/AuthContext';
 import { Alert, Field } from '../components/Form';
@@ -6,29 +6,106 @@ import { MoneyInput } from '../components/MoneyInput';
 import { PasswordStrength } from '../components/PasswordStrength';
 import { Sheet } from '../components/Sheet';
 import { api } from '../lib/api';
-import { CATEGORIES_PATH, PAYMENTS_PATH } from '../components/ManageCategoriesLink';
 import { describeNotice, restoreNotice, type NotificationsResponse } from '../components/NotificationBell';
 import { Link, navigate } from '../lib/router';
-import { applyTheme, type Theme } from '../lib/theme';
+import { applyTheme, currentTheme, subscribeTheme, type Theme } from '../lib/theme';
 import { useSubmit } from '../lib/useSubmit';
+import { CategoriesPage } from './CategoriesPage';
+import { PaymentsPage } from './PaymentsPage';
 
-export function SettingsPage({ user }: { user: User }) {
+/** Seções dos ajustes, na ordem da guia lateral. Cada uma tem o seu endereço: /configuracoes/<id>. */
+export const SETTINGS_SECTIONS = [
+  {
+    group: 'Conta',
+    items: [
+      { id: 'perfil', label: 'Perfil', icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></> },
+      { id: 'seguranca', label: 'Senha e segurança', icon: <><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></> },
+    ],
+  },
+  {
+    group: 'Finanças',
+    items: [
+      { id: 'mes', label: 'Mês financeiro', icon: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></> },
+      { id: 'categorias', label: 'Categorias', icon: <><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4z" /><circle cx="16.5" cy="16.5" r="3.5" /></> },
+      { id: 'pagamentos', label: 'Pagamentos e cartões', icon: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></> },
+      { id: 'orcamento', label: 'Alertas do orçamento', icon: <><path d="M12 3l9 16H3z" /><path d="M12 10v4M12 17h.01" /></> },
+    ],
+  },
+  {
+    group: 'Aplicativo',
+    items: [
+      { id: 'avisos', label: 'Avisos', icon: <><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10 21a2 2 0 0 0 4 0" /></> },
+      { id: 'aparencia', label: 'Aparência', icon: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></> },
+    ],
+  },
+];
+
+export type SettingsSection = 'perfil' | 'seguranca' | 'mes' | 'categorias' | 'pagamentos' | 'orcamento' | 'avisos' | 'aparencia';
+
+/** Seção a partir do endereço; sem seção (ou desconhecida), abre o perfil. */
+export function settingsSectionOf(path: string): SettingsSection {
+  if (path === '/categorias') return 'categorias';
+  const id = path.split('/')[2];
+  return SETTINGS_SECTIONS.some((g) => g.items.some((i) => i.id === id)) ? (id as SettingsSection) : 'perfil';
+}
+
+/**
+ * Ajustes (RN-42 a RN-47a): guia lateral com as seções e, ao lado, só a seção escolhida.
+ * No celular, a guia vira uma faixa de abas roláveis no topo.
+ */
+export function SettingsPage({ user, section }: { user: User; section: SettingsSection }) {
+  const navRef = useRef<HTMLElement>(null);
+  // No celular, a faixa de abas rola até a seção aberta.
+  useEffect(() => {
+    navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [section]);
+
   return (
-    <>
-      <h1>Configurações</h1>
-      <div className="settings">
-        <ProfileSection user={user} />
-        <CategoriesSection />
-        <PaymentsSection />
-        <WarningSection user={user} />
-        <NoticesSection user={user} />
-        <PeriodSection user={user} />
-        <InitialBalanceSection user={user} />
-        <ThemeSection user={user} />
-        <PasswordSection />
-        <AccountSection />
+    <div className="settings-layout">
+      <aside className="settings-nav" aria-label="Seções dos ajustes">
+        <h1 className="settings-nav__title">Ajustes</h1>
+        <nav ref={navRef} className="settings-nav__list">
+          {SETTINGS_SECTIONS.map((group) => (
+            <div key={group.group} className="settings-nav__group">
+              <span className="settings-nav__group-label">{group.group}</span>
+              {group.items.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/configuracoes/${item.id}`}
+                  className="settings-nav__item"
+                  aria-current={section === item.id ? 'page' : undefined}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {item.icon}
+                  </svg>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </nav>
+      </aside>
+      <div className="settings-content">
+        {section === 'perfil' && <ProfileSection user={user} />}
+        {section === 'seguranca' && (
+          <>
+            <PasswordSection />
+            <AccountSection />
+          </>
+        )}
+        {section === 'mes' && (
+          <>
+            <PeriodSection user={user} />
+            <InitialBalanceSection user={user} />
+          </>
+        )}
+        {section === 'categorias' && <CategoriesPage />}
+        {section === 'pagamentos' && <PaymentsPage />}
+        {section === 'orcamento' && <WarningSection user={user} />}
+        {section === 'avisos' && <NoticesSection user={user} />}
+        {section === 'aparencia' && <ThemeSection user={user} />}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -39,17 +116,6 @@ function Section({ title, description, children, target }: { title: string; desc
       {description && <p className="muted small">{description}</p>}
       {children}
     </section>
-  );
-}
-
-/** RN-47a: as categorias ficam dentro dos ajustes. */
-function CategoriesSection() {
-  return (
-    <Section title="Categorias" description="Crie, renomeie e organize as categorias de receitas e despesas, com a classe de cada despesa.">
-      <Link href={CATEGORIES_PATH} className="button button--ghost settings__link">
-        Gerenciar categorias
-      </Link>
-    </Section>
   );
 }
 
@@ -98,16 +164,6 @@ function WarningSection({ user }: { user: User }) {
 }
 
 /** RN-47a, RN-51, RN-69: formas de pagamento e cartões ficam dentro dos ajustes. */
-function PaymentsSection() {
-  return (
-    <Section title="Formas de pagamento e cartões" description="Crie formas de pagamento próprias e cadastre os cartões de crédito.">
-      <Link href={PAYMENTS_PATH} className="button button--ghost settings__link">
-        Gerenciar formas de pagamento e cartões
-      </Link>
-    </Section>
-  );
-}
-
 const SNOOZE_OPTIONS = [1, 3, 7, 15, 30];
 
 /** RN-72b: por quantos dias um aviso dispensado fica fora do sino, e os avisos dispensados que ainda valem. */
@@ -307,7 +363,7 @@ function InitialBalanceSection({ user }: { user: User }) {
   return (
     <Section
       title="Saldo inicial"
-      description="Quanto você tinha na conta quando começou a usar o pocket-plan. O saldo acumulado do painel parte desse valor."
+      description="Quanto você tinha na conta quando começou a usar o Pocket Plan. O saldo acumulado do painel parte desse valor."
     >
       {saved && <Alert kind="success">Saldo inicial atualizado.</Alert>}
       {save.error && <Alert kind="error">{save.error}</Alert>}
@@ -335,22 +391,20 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 ];
 
 /** RN-45: aplica na hora e salva na conta. */
-function ThemeSection({ user }: { user: User }) {
+function ThemeSection(_props: { user: User }) {
   const saveUser = useSaveUser();
   const [error, setError] = useState<string | null>(null);
-  // Marca a opção na hora do clique, junto com o tema aplicado, sem esperar a API.
-  const [selected, setSelected] = useState<Theme>(user.theme);
+  // O mesmo estado do botão de tema do topo: os dois ficam sempre iguais.
+  const selected = useSyncExternalStore(subscribeTheme, currentTheme);
 
   async function choose(theme: Theme) {
     if (theme === selected) return;
     const previous = selected;
     setError(null);
-    setSelected(theme);
     applyTheme(theme);
     try {
       await saveUser('/settings/preferences', { theme });
     } catch (err) {
-      setSelected(previous);
       applyTheme(previous);
       setError(err instanceof Error ? err.message : 'Não foi possível salvar o tema.');
     }

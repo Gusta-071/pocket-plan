@@ -1,4 +1,4 @@
-# pocket-plan
+# Pocket Plan
 
 [![CI](https://github.com/Gusta-071/pocket-plan/actions/workflows/ci.yml/badge.svg)](https://github.com/Gusta-071/pocket-plan/actions/workflows/ci.yml)
 

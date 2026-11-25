@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AppLayout } from './components/AppLayout';
 import { navigate, useLocation } from './lib/router';
-import { CategoriesPage } from './pages/CategoriesPage';
 import { ConfirmEmailPage } from './pages/ConfirmEmailPage';
 import { EntriesPage } from './pages/EntriesPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -11,8 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { BillsPage } from './pages/BillsPage';
-import { PaymentsPage } from './pages/PaymentsPage';
-import { SettingsPage } from './pages/SettingsPage';
+import { SettingsPage, settingsSectionOf } from './pages/SettingsPage';
 import { VerifyEmailPendingPage } from './pages/VerifyEmailPendingPage';
 
 /** Telas de entrada, abertas a quem não está logado. */
@@ -80,12 +78,8 @@ function Routes() {
         <EntriesPage user={user} />
       ) : path === '/contas' ? (
         <BillsPage user={user} />
-      ) : path === '/configuracoes/pagamentos' ? (
-        <PaymentsPage />
-      ) : path === '/configuracoes/categorias' || path === '/categorias' ? (
-        <CategoriesPage />
-      ) : path === '/configuracoes' ? (
-        <SettingsPage user={user} />
+      ) : path === '/configuracoes' || path.startsWith('/configuracoes/') || path === '/categorias' ? (
+        <SettingsPage user={user} section={settingsSectionOf(path)} />
       ) : (
         <HomePage user={user} />
       )}

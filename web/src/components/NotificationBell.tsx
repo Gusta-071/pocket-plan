@@ -183,7 +183,7 @@ export function NotificationBell() {
           {data && data.dismissed.length > 0 && (
             <p className="small muted bell__footer">
               {data.dismissed.length === 1 ? '1 aviso dispensado' : `${data.dismissed.length} avisos dispensados`} ·{' '}
-              <button type="button" className="link-button small" onClick={() => navigate('/configuracoes?destaque=avisos')}>
+              <button type="button" className="link-button small" onClick={() => navigate('/configuracoes/avisos?destaque=avisos')}>
                 ver em Ajustes
               </button>
             </p>

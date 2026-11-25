@@ -135,9 +135,6 @@ export function CategoriesPage() {
 
   return (
     <>
-      <Link href="/configuracoes" className="back-link">
-        ‹ Ajustes
-      </Link>
       <div className="page-header">
         <h1>Categorias</h1>
       </div>

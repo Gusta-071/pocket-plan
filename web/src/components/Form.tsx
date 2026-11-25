@@ -1,12 +1,16 @@
 import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { ThemeToggle } from './ThemeToggle';
 
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <main className="shell">
+    <main className="shell shell--auth">
+      <div className="shell__theme">
+        <ThemeToggle />
+      </div>
       <section className="card auth-card">
         <header className="auth-card__header">
           <img src="/logo.png" alt="" width={40} height={40} />
-          <span className="brand">pocket-plan</span>
+          <span className="brand">Pocket Plan</span>
         </header>
         <h1>{title}</h1>
         {subtitle && <p className="muted">{subtitle}</p>}
