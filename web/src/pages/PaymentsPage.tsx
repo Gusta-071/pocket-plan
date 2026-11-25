@@ -51,9 +51,6 @@ export function PaymentsPage() {
 
   return (
     <>
-      <Link href="/configuracoes" className="back-link">
-        ‹ Ajustes
-      </Link>
       <h1>Formas de pagamento e cartões</h1>
       {error && <Alert kind="error">{error}</Alert>}
       {(!methods || !cards) && !error && (
