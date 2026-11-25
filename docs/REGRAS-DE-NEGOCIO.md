@@ -202,7 +202,11 @@ Resumo para quem revisa. As regras marcadas como *(planejada)* ainda não estão
   - cada parcela é exibida com a indicação "(3/36)" depois da descrição;
   - as parcelas podem passar do limite de 12 meses de RN-23, mas a primeira segue o limite;
   - as parcelas têm valor fixo (como na tabela Price). Parcelas que mudam todo mês (SAC) ficam para depois.
-  - **RN-56a — Parcelas ligadas.** As parcelas de uma compra formam um parcelamento. **Alterar uma parcela altera todas**: valor da parcela, categoria, descrição, forma de pagamento, cartão e data (as demais acompanham, mês a mês). A situação (RN-22) é de cada parcela; no cartão, segue a fatura (RN-54). Para mudar o número de parcelas, o usuário exclui o parcelamento e o registra de novo. **Excluir uma parcela exclui o parcelamento inteiro**, com confirmação. Parcelas não podem ser repetidas (RN-25b).
+  - **RN-56a — Parcelas ligadas.** As parcelas de uma compra formam um parcelamento. **Alterar uma parcela altera todas**: valor da parcela, categoria, descrição, forma de pagamento, cartão e data.
+    - **Valor:** o novo valor vale para cada parcela, e o total passa a ser parcela × número de parcelas. Num parcelamento registrado pelo total, a sobra de centavos da primeira parcela deixa de existir, e o formulário avisa.
+    - **Data:** a parcela editada fica com a data informada; as demais ficam no mesmo dia do mês, mês a mês, ou no último dia nos meses mais curtos (como em RN-25b).
+
+    A situação (RN-22) é de cada parcela; no cartão, segue a fatura (RN-54). Para mudar o número de parcelas, o usuário exclui o parcelamento e o registra de novo. **Excluir uma parcela exclui o parcelamento inteiro**, com confirmação. Parcelas não podem ser repetidas (RN-25b).
 - **RN-57 — Arquivar cartão.** Um cartão sem compras pode ser excluído. Um cartão com compras não pode ser excluído, apenas **arquivado**: deixa de aparecer para novas compras, mas mantém o histórico e as faturas. Um cartão arquivado pode ser reativado.
 
 ## Despesas compartilhadas *(planejada)*
