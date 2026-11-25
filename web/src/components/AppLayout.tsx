@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth, type User } from '../auth/AuthContext';
 import { Link, useLocation } from '../lib/router';
 import { useHighlight } from '../lib/useHighlight';
@@ -52,6 +52,17 @@ export function AppLayout({ user, children }: { user: User; children: ReactNode 
   const [leaving, setLeaving] = useState(false);
   // RN-72c: destaca o item indicado por um aviso.
   useHighlight();
+  // A gaveta do assistente começa logo abaixo do topo, cuja altura muda com a tela.
+  const topbarRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const topbar = topbarRef.current;
+    if (!topbar) return;
+    const observer = new ResizeObserver(() =>
+      document.documentElement.style.setProperty('--topbar-height', `${topbar.offsetHeight}px`),
+    );
+    observer.observe(topbar);
+    return () => observer.disconnect();
+  }, []);
 
   async function handleLogout() {
     setLeaving(true);
@@ -60,9 +71,9 @@ export function AppLayout({ user, children }: { user: User; children: ReactNode 
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar" ref={topbarRef}>
         <span className="topbar__brand">
-          <img src="/logo.png" alt="" width={28} height={28} /> pocket-plan
+          <img src="/logo.png" alt="" width={28} height={28} /> <span className="topbar__brand-name">pocket-plan</span>
         </span>
         <nav className="nav" aria-label="Seções">
           {NAV_ITEMS.map((item) => (

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatDate, parseDate, shiftPeriod, today, type Period } from '../../../shared/period';
 import type { User } from '../auth/AuthContext';
-import { Assistant } from '../components/Assistant';
+import { AssistantDock } from '../components/AssistantDock';
 import { BudgetAmountSheet } from '../components/BudgetAmountSheet';
 import { BillRow, InvoiceSheet, toggleBill, type BillItem } from '../components/BillRow';
 import { Alert } from '../components/Form';
@@ -165,10 +165,8 @@ export function HomePage({ user }: { user: User }) {
           </div>
         )}
       </div>
-      {/* No PC largo, o assistente fica fixo na coluna da direita; em telas menores, depois do painel. */}
-      <aside className="home__side">
-        <Assistant onSaved={() => void load()} />
-      </aside>
+      {/* Assistente retrátil: gaveta à direita no PC; botão flutuante no celular. */}
+      <AssistantDock onSaved={() => void load()} />
     </div>
   );
 }
@@ -464,7 +462,7 @@ function Bills({
         </p>
       )}
       {items.length === 0 ? (
-        <p className="card muted small dashboard__empty">Nada atrasado nem vencendo nos próximos 7 dias. 🎉</p>
+        <p className="card muted small dashboard__empty">Nada atrasado nem vencendo nos próximos 7 dias.</p>
       ) : (
         <ul className="list">
           {items.map((item) => (
@@ -703,27 +701,30 @@ function Evolution({ data }: { data: Dashboard }) {
             </span>
           ))}
         </div>
-        <table className="visually-hidden">
-          <caption>Receitas e despesas por período</caption>
-          <thead>
-            <tr>
-              <th scope="col">Período</th>
-              <th scope="col">Receitas</th>
-              <th scope="col">Despesas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {evolution.map((p) => (
-              <tr key={p.start}>
-                <th scope="row">
-                  {p.label} ({formatDate(p.start)} a {formatDate(p.end)})
-                </th>
-                <td>{formatMoney(p.incomeCents)}</td>
-                <td>{formatMoney(p.expenseCents)}</td>
+        {/* Tabelas ignoram a largura do CSS e cresceriam até o tamanho do conteúdo: o recorte fica num <div>. */}
+        <div className="visually-hidden">
+          <table>
+            <caption>Receitas e despesas por período</caption>
+            <thead>
+              <tr>
+                <th scope="col">Período</th>
+                <th scope="col">Receitas</th>
+                <th scope="col">Despesas</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {evolution.map((p) => (
+                <tr key={p.start}>
+                  <th scope="row">
+                    {p.label} ({formatDate(p.start)} a {formatDate(p.end)})
+                  </th>
+                  <td>{formatMoney(p.incomeCents)}</td>
+                  <td>{formatMoney(p.expenseCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <p className="small muted bars__footnote">Considera pagos e pendentes, pela data dos lançamentos.</p>
       </div>
     </section>

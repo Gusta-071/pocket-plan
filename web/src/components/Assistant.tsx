@@ -143,9 +143,7 @@ export function Assistant({ onSaved }: { onSaved: () => void }) {
   return (
     <section className="card assistant" aria-label="Assistente">
       <header className="assistant__header">
-        <h2>
-          <span aria-hidden="true">✨</span> Assistente
-        </h2>
+        <h2>Assistente</h2>
         <span className="small muted">Conte um gasto ou uma receita, e eu preparo o lançamento.</span>
       </header>
 
