@@ -172,6 +172,10 @@ a { color: var(--color-primary); font-weight: 600; }
 
 /* Área logada */
 .topbar {
+  /* Fixo ao rolar: o assistente, o sino e o tema ficam sempre à mão, e a gaveta do assistente encaixa logo abaixo. */
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -912,14 +916,14 @@ section:first-of-type > .class-group__header { margin-top: 0; }
     gap: 16px 24px;
   }
   .bills__main { grid-area: main; }
-  .bills__side { grid-area: side; position: sticky; top: 24px; }
+  .bills__side { grid-area: side; position: sticky; top: calc(var(--topbar-height, 64px) + 16px); }
   .bills__extra { grid-area: extra; }
   .bills-receivables { margin-top: 0; }
 
   /* Lançamentos: lista à esquerda; totais e filtros numa coluna fixa à direita. */
   .entries { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: 'main side'; align-items: start; gap: 24px; }
   .entries__main { grid-area: main; }
-  .entries__side { grid-area: side; position: sticky; top: 24px; display: grid; gap: 12px; }
+  .entries__side { grid-area: side; position: sticky; top: calc(var(--topbar-height, 64px) + 16px); display: grid; gap: 12px; }
   .entries__side .summary { margin: 0; }
   .entries__side .filters { grid-template-columns: 1fr; margin: 0; }
 
@@ -1076,7 +1080,7 @@ li.destaque::after { border-radius: 12px; }
 
 @media (min-width: 900px) {
   .settings-layout { grid-template-columns: 250px minmax(0, 1fr); gap: 32px; align-items: start; }
-  .settings-nav { position: sticky; top: 88px; }
+  .settings-nav { position: sticky; top: calc(var(--topbar-height, 64px) + 24px); }
   .settings-layout { grid-template-columns: 240px minmax(0, 1fr); }
 }
 
