@@ -119,7 +119,7 @@ export function BillsPage({ user }: { user: User }) {
 
             {/* RN-50c: atrasadas de meses anteriores, num aviso recolhível */}
             {data.previousOverdue.entries.length > 0 && (
-              <details className="alert alert--error bills-overdue">
+              <details className="alert alert--error bills-overdue" data-destaque="atrasadas">
                 <summary>
                   <strong>
                     {data.previousOverdue.entries.length === 1
@@ -141,7 +141,10 @@ export function BillsPage({ user }: { user: User }) {
 
           <div className="bills__main">
             {data.expenses.length > 0 ? (
-              <ul className="list">{data.expenses.map(row)}</ul>
+              // Sem atrasadas de meses anteriores, o aviso de atrasadas destaca a lista do mês, onde elas estão.
+              <ul className="list" data-destaque={data.previousOverdue.entries.length > 0 ? 'a-vencer' : 'a-vencer atrasadas'}>
+                {data.expenses.map(row)}
+              </ul>
             ) : (
               <div className="empty">
                 <p>Nenhuma despesa neste período.</p>

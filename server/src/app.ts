@@ -9,6 +9,7 @@ import { categoryRoutes } from './modules/categories/categories.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { entryRoutes } from './modules/entries/entries.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { notificationRoutes } from './modules/notifications/notifications.routes.js';
 import { paymentMethodRoutes } from './modules/payment-methods/payment-methods.routes.js';
 import { settingsRoutes } from './modules/settings/settings.routes.js';
 
@@ -27,6 +28,7 @@ export function createApp() {
   app.use('/api/categories', categoryRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/entries', entryRoutes);
+  app.use('/api/notifications', notificationRoutes);
   app.use('/api/payment-methods', paymentMethodRoutes);
   app.use('/api/settings', settingsRoutes);
 

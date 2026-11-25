@@ -26,6 +26,10 @@ export const preferencesSchema = z
       .min(-MAX_AMOUNT_CENTS, { error: 'O saldo inicial deve estar entre −R$ 10.000.000,00 e R$ 10.000.000,00.' })
       .max(MAX_AMOUNT_CENTS, { error: 'O saldo inicial deve estar entre −R$ 10.000.000,00 e R$ 10.000.000,00.' })
       .optional(),
+    // RN-72b: por quantos dias um aviso dispensado fica fora do sino.
+    noticeSnoozeDays: z
+      .union([z.literal(1), z.literal(3), z.literal(7), z.literal(15), z.literal(30)], { error: 'Escolha 1, 3, 7, 15 ou 30 dias.' })
+      .optional(),
     warningPercent: z
       .number({ error: WARNING_ERROR })
       .int({ error: WARNING_ERROR })

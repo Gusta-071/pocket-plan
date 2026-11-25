@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { formatDate, periodContaining, today, type PeriodNaming } from '../../../shared/period';
 import { useAuth, type User } from '../auth/AuthContext';
 import { Alert, Field } from '../components/Form';
@@ -7,6 +7,7 @@ import { PasswordStrength } from '../components/PasswordStrength';
 import { Sheet } from '../components/Sheet';
 import { api } from '../lib/api';
 import { CATEGORIES_PATH, PAYMENTS_PATH } from '../components/ManageCategoriesLink';
+import { describeNotice, restoreNotice, type NotificationsResponse } from '../components/NotificationBell';
 import { Link, navigate } from '../lib/router';
 import { applyTheme, type Theme } from '../lib/theme';
 import { useSubmit } from '../lib/useSubmit';
@@ -20,6 +21,7 @@ export function SettingsPage({ user }: { user: User }) {
         <CategoriesSection />
         <PaymentsSection />
         <WarningSection user={user} />
+        <NoticesSection user={user} />
         <PeriodSection user={user} />
         <InitialBalanceSection user={user} />
         <ThemeSection user={user} />
@@ -30,9 +32,9 @@ export function SettingsPage({ user }: { user: User }) {
   );
 }
 
-function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function Section({ title, description, children, target }: { title: string; description?: string; children: ReactNode; target?: string }) {
   return (
-    <section className="card settings__section">
+    <section className="card settings__section" data-destaque={target}>
       <h2>{title}</h2>
       {description && <p className="muted small">{description}</p>}
       {children}
@@ -102,6 +104,83 @@ function PaymentsSection() {
       <Link href={PAYMENTS_PATH} className="button button--ghost settings__link">
         Gerenciar formas de pagamento e cartões
       </Link>
+    </Section>
+  );
+}
+
+const SNOOZE_OPTIONS = [1, 3, 7, 15, 30];
+
+/** RN-72b: por quantos dias um aviso dispensado fica fora do sino, e os avisos dispensados que ainda valem. */
+function NoticesSection({ user }: { user: User }) {
+  const saveUser = useSaveUser();
+  const [data, setData] = useState<NotificationsResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      setData(await api<NotificationsResponse>('/notifications'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar os avisos.');
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function changeDays(noticeSnoozeDays: number) {
+    setError(null);
+    try {
+      await saveUser('/settings/preferences', { noticeSnoozeDays });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
+    }
+  }
+
+  async function restore(key: string) {
+    await restoreNotice(key).catch(() => undefined);
+    void load();
+  }
+
+  return (
+    <Section
+      title="Avisos"
+      target="avisos"
+      description="Um aviso dispensado sai do sino por alguns dias e volta se a situação continuar. Se piorar antes, ele volta na hora."
+    >
+      {error && <Alert kind="error">{error}</Alert>}
+      <div className="field">
+        <label htmlFor="snooze-days">Dispensar avisos por</label>
+        <select id="snooze-days" value={user.noticeSnoozeDays} onChange={(e) => void changeDays(Number(e.target.value))}>
+          {SNOOZE_OPTIONS.map((days) => (
+            <option key={days} value={days}>
+              {days} {days === 1 ? 'dia' : 'dias'}
+            </option>
+          ))}
+        </select>
+      </div>
+      <h3 className="settings__subtitle">Dispensados</h3>
+      {!data ? (
+        <p className="muted small">Carregando…</p>
+      ) : data.dismissed.length === 0 ? (
+        <p className="muted small">Nenhum aviso dispensado no momento.</p>
+      ) : (
+        <ul className="list">
+          {data.dismissed.map((n) => (
+            <li key={n.key}>
+              <div className="list__item list__item--static">
+                <span className="entry__text">
+                  <span className="list__label">{describeNotice(n).title}</span>
+                  <span className="muted small">Volta em {formatDate(n.dismissedUntil!)}</span>
+                </span>
+                <button type="button" className="link-button small" onClick={() => void restore(n.key)}>
+                  Mostrar de novo
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </Section>
   );
 }

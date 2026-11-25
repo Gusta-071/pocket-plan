@@ -15,6 +15,8 @@ export type User = {
   initialBalanceCents: number;
   /** RN-32a: nível de atenção do orçamento, em % do limite. */
   warningPercent: number;
+  /** RN-72b: dias que um aviso dispensado fica fora do sino. */
+  noticeSnoozeDays: number;
 };
 
 type AuthState = {

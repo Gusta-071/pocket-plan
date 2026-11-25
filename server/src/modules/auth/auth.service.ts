@@ -41,6 +41,8 @@ export type PublicUser = {
   initialBalanceCents: number;
   /** RN-32a */
   warningPercent: number;
+  /** RN-72b */
+  noticeSnoozeDays: number;
 };
 
 type UserRow = {
@@ -53,6 +55,7 @@ type UserRow = {
   theme: string;
   initialBalanceCents: number;
   warningPercent: number;
+  noticeSnoozeDays: number;
 };
 
 export function toPublicUser(user: UserRow): PublicUser {
@@ -66,6 +69,7 @@ export function toPublicUser(user: UserRow): PublicUser {
     theme: user.theme as Theme,
     initialBalanceCents: user.initialBalanceCents,
     warningPercent: user.warningPercent,
+    noticeSnoozeDays: user.noticeSnoozeDays,
   };
 }
 
