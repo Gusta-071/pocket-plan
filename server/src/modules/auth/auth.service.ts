@@ -105,8 +105,8 @@ async function sendVerificationEmail(user: UserRow, appUrl: string): Promise<voi
   const link = `${appUrl}/confirmar-email?token=${encodeURIComponent(token)}`;
   await sendMail({
     to: user.email,
-    subject: 'pocket-plan — confirme seu e-mail',
-    text: `Olá, ${user.name}!\n\nBem-vindo ao pocket-plan. Para liberar sua conta, confirme seu e-mail acessando o link abaixo. Ele vale por 24 horas e só pode ser usado uma vez.\n\n${link}\n\nSe você não criou esta conta, ignore este e-mail.`,
+    subject: 'Pocket Plan — confirme seu e-mail',
+    text: `Olá, ${user.name}!\n\nBem-vindo ao Pocket Plan. Para liberar sua conta, confirme seu e-mail acessando o link abaixo. Ele vale por 24 horas e só pode ser usado uma vez.\n\n${link}\n\nSe você não criou esta conta, ignore este e-mail.`,
   });
 }
 
@@ -228,7 +228,7 @@ export async function requestPasswordReset(input: z.infer<typeof forgotPasswordS
   const link = `${appUrl}/redefinir-senha?token=${encodeURIComponent(token)}`;
   await sendMail({
     to: user.email,
-    subject: 'pocket-plan — redefinição de senha',
+    subject: 'Pocket Plan — redefinição de senha',
     text: `Olá, ${user.name}!\n\nPara definir uma nova senha, acesse o link abaixo. Ele vale por 30 minutos e só pode ser usado uma vez.\n\n${link}\n\nSe você não pediu a redefinição, ignore este e-mail.`,
   });
 }

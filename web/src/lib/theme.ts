@@ -3,6 +3,7 @@ export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM';
 const STORAGE_KEY = 'pp-theme';
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 let current: Theme = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? 'SYSTEM';
+const listeners = new Set<() => void>();
 
 function paint() {
   const dark = current === 'DARK' || (current === 'SYSTEM' && darkQuery.matches);
@@ -18,6 +19,17 @@ export function applyTheme(theme: Theme) {
   current = theme;
   localStorage.setItem(STORAGE_KEY, theme);
   paint();
+  listeners.forEach((listener) => listener());
+}
+
+/** Tema escolhido agora (para os botões de tema ficarem em sincronia). */
+export function currentTheme(): Theme {
+  return current;
+}
+
+export function subscribeTheme(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
 darkQuery.addEventListener('change', paint);

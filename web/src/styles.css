@@ -1039,7 +1039,7 @@ li.destaque::after { border-radius: 12px; }
 }
 
 /* Ajustes com guia lateral: uma seção por vez. No celular, a guia vira uma faixa de abas roláveis. */
-.content:has(.settings-layout) { max-width: 1200px; }
+.content:has(.settings-layout) { max-width: 1440px; }
 .settings-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .settings-nav { min-width: 0; }
 .settings-nav .settings-nav__title { margin: 0 0 20px; }
@@ -1077,7 +1077,7 @@ li.destaque::after { border-radius: 12px; }
 @media (min-width: 900px) {
   .settings-layout { grid-template-columns: 250px minmax(0, 1fr); gap: 32px; align-items: start; }
   .settings-nav { position: sticky; top: 88px; }
-  .settings-content { max-width: 780px; }
+  .settings-layout { grid-template-columns: 240px minmax(0, 1fr); }
 }
 
 @media (max-width: 899px) {
@@ -1100,4 +1100,59 @@ li.destaque::after { border-radius: 12px; }
     background: var(--color-surface);
   }
   .settings-nav__item[aria-current='page'] { border-color: var(--color-primary); }
+}
+
+/* Telas de entrada: fundo com ícones de dinheiro, como um papel de parede, e o botão de tema no canto. */
+.shell--auth {
+  position: relative;
+  background-color: var(--color-bg);
+  background-image: url('/pattern-light.svg');
+  background-size: 280px 280px;
+}
+[data-theme='dark'] .shell--auth { background-image: url('/pattern-dark.svg'); }
+.shell__theme { position: absolute; top: 16px; right: 16px; }
+.shell--auth .auth-card { position: relative; }
+
+/* Botão de tema (RN-45): sol, lua e "A" de automático. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+.theme-toggle__option {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.theme-toggle__option:hover { background: var(--color-hover); color: var(--color-text); }
+.theme-toggle__option:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.theme-toggle__option[aria-checked='true'] { background: var(--color-primary); color: var(--color-on-primary); }
+.theme-toggle__auto { font-size: 0.8rem; font-weight: 800; line-height: 1; }
+@media (max-width: 640px) {
+  .topbar .theme-toggle__option { width: 28px; height: 28px; }
+}
+
+@media (min-width: 1200px) {
+  /* Seções com mais de um bloco ficam lado a lado; as de um bloco só ocupam a largura toda. */
+  .settings-content { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+  .settings-content > :only-child, .settings-content > .categories, .settings-content > div:not(.card) { grid-column: 1 / -1; }
+}
+
+/* Lado a lado, cada bloco dos ajustes fica com a própria altura, sem espalhar o conteúdo. */
+.settings-content { align-items: start; }
+.settings-content .settings__section { align-content: start; }
+/* Celular: o cartão de entrada começa abaixo do botão de tema, que não fica coberto. */
+@media (max-width: 640px) {
+  .shell--auth { padding-top: 72px; }
 }

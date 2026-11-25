@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { formatDate, periodContaining, today, type PeriodNaming } from '../../../shared/period';
 import { useAuth, type User } from '../auth/AuthContext';
 import { Alert, Field } from '../components/Form';
@@ -8,7 +8,7 @@ import { Sheet } from '../components/Sheet';
 import { api } from '../lib/api';
 import { describeNotice, restoreNotice, type NotificationsResponse } from '../components/NotificationBell';
 import { Link, navigate } from '../lib/router';
-import { applyTheme, type Theme } from '../lib/theme';
+import { applyTheme, currentTheme, subscribeTheme, type Theme } from '../lib/theme';
 import { useSubmit } from '../lib/useSubmit';
 import { CategoriesPage } from './CategoriesPage';
 import { PaymentsPage } from './PaymentsPage';
@@ -363,7 +363,7 @@ function InitialBalanceSection({ user }: { user: User }) {
   return (
     <Section
       title="Saldo inicial"
-      description="Quanto você tinha na conta quando começou a usar o pocket-plan. O saldo acumulado do painel parte desse valor."
+      description="Quanto você tinha na conta quando começou a usar o Pocket Plan. O saldo acumulado do painel parte desse valor."
     >
       {saved && <Alert kind="success">Saldo inicial atualizado.</Alert>}
       {save.error && <Alert kind="error">{save.error}</Alert>}
@@ -391,22 +391,20 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 ];
 
 /** RN-45: aplica na hora e salva na conta. */
-function ThemeSection({ user }: { user: User }) {
+function ThemeSection(_props: { user: User }) {
   const saveUser = useSaveUser();
   const [error, setError] = useState<string | null>(null);
-  // Marca a opção na hora do clique, junto com o tema aplicado, sem esperar a API.
-  const [selected, setSelected] = useState<Theme>(user.theme);
+  // O mesmo estado do botão de tema do topo: os dois ficam sempre iguais.
+  const selected = useSyncExternalStore(subscribeTheme, currentTheme);
 
   async function choose(theme: Theme) {
     if (theme === selected) return;
     const previous = selected;
     setError(null);
-    setSelected(theme);
     applyTheme(theme);
     try {
       await saveUser('/settings/preferences', { theme });
     } catch (err) {
-      setSelected(previous);
       applyTheme(previous);
       setError(err instanceof Error ? err.message : 'Não foi possível salvar o tema.');
     }

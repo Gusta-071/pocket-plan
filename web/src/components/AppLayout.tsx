@@ -3,6 +3,7 @@ import { useAuth, type User } from '../auth/AuthContext';
 import { Link, useLocation } from '../lib/router';
 import { useHighlight } from '../lib/useHighlight';
 import { NotificationBell } from './NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Início', icon: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /> },
@@ -73,7 +74,7 @@ export function AppLayout({ user, children }: { user: User; children: ReactNode 
     <div className="app">
       <header className="topbar" ref={topbarRef}>
         <span className="topbar__brand">
-          <img src="/logo.png" alt="" width={28} height={28} /> <span className="topbar__brand-name">pocket-plan</span>
+          <img src="/logo.png" alt="" width={28} height={28} /> <span className="topbar__brand-name">Pocket Plan</span>
         </span>
         <nav className="nav" aria-label="Seções">
           {NAV_ITEMS.map((item) => (
@@ -91,6 +92,7 @@ export function AppLayout({ user, children }: { user: User; children: ReactNode 
           ))}
         </nav>
         <span className="topbar__user">
+          <ThemeToggle />
           {/* RN-72: central de avisos, no topo em todas as telas. */}
           <NotificationBell />
           <span className="topbar__name">{user.name}</span>

@@ -43,7 +43,7 @@ export function ConfirmEmailPage({ token }: { token: string | null }) {
       <AuthCard title="E-mail confirmado">
         <Alert kind="success">Tudo certo! Sua conta está liberada.</Alert>
         <Link className="button button--block" href={user ? '/' : '/login'}>
-          {user ? 'Ir para o pocket-plan' : 'Entrar'}
+          {user ? 'Ir para o Pocket Plan' : 'Entrar'}
         </Link>
       </AuthCard>
     );

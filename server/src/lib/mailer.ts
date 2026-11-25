@@ -18,5 +18,5 @@ export async function sendMail(mail: Mail): Promise<void> {
     secure: process.env.SMTP_SECURE === 'true',
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
   });
-  await transport.sendMail({ from: process.env.SMTP_FROM ?? 'pocket-plan <no-reply@pocket-plan.local>', ...mail });
+  await transport.sendMail({ from: process.env.SMTP_FROM ?? 'Pocket Plan <no-reply@pocket-plan.local>', ...mail });
 }

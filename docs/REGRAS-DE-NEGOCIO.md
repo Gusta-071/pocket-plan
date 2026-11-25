@@ -1,6 +1,6 @@
-# Regras de negócio — pocket-plan
+# Regras de negócio — Pocket Plan
 
-Este documento define as regras do domínio do pocket-plan. Cada regra tem um identificador (`RN-XX`) para ser referenciada no código, nos testes e nas discussões. Quando uma regra mudar, este documento deve ser atualizado junto com o código.
+Este documento define as regras do domínio do Pocket Plan. Cada regra tem um identificador (`RN-XX`) para ser referenciada no código, nos testes e nas discussões. Quando uma regra mudar, este documento deve ser atualizado junto com o código.
 
 **Status:** versão da entrega — 25/11/2026. Todas as regras estão implementadas e testadas, exceto as marcadas como *(planejada)* ou *(adiada)*.
 
@@ -265,7 +265,7 @@ As regras citam umas às outras pelo identificador; os comentários do código e
   - **RN-66b — Propostas conferidas.** Antes de mostrar, o sistema confere cada proposta: o valor precisa estar escrito na conversa (se não estiver, a proposta é descartada e o assistente pergunta o valor, para que nada seja inventado); valor e data fora dos limites (RN-20, RN-23) descartam a proposta, e o usuário é avisado de quantas foram descartadas; categoria inexistente, de outro usuário ou do tipo errado (RN-21) é trocada pela categoria "Outras" do tipo; se o usuário já tem um lançamento com a mesma descrição, a categoria dele é usada; repetições que passariam do limite de datas são reduzidas às que cabem.
   - **RN-66e — Conversão feita pelo sistema.** O modelo só interpreta a frase: tipo, valor em reais, a expressão de data, a categoria (escolhida entre as do usuário), a descrição, se foi dito que está pago e quantas vezes repete. O sistema converte o resto de forma exata: o valor em centavos; "hoje", "ontem", "anteontem", "amanhã", "DD/MM" e "dia N" em datas ("dia N" de algo que se repete e cujo dia já passou neste mês começa no mês seguinte; de um gasto único, é o dia N deste mês); e a situação: com um lançamento só na mensagem, expressões claras como "ainda não paguei", "vence" e "vou pagar" (pendente) ou "paguei" e "recebi" (pago) valem sobre o que o modelo entendeu; sem informação, vale a sugestão pela data (RN-22).
   - **RN-66c — Limite de uso.** Cada usuário pode enviar até 20 mensagens ao assistente a cada 10 minutos.
-  - **RN-66d — Privacidade.** A conversa fica só no navegador e não é armazenada pelo pocket-plan. As mensagens, a data de hoje e os nomes das categorias do usuário são interpretados por um modelo de linguagem pequeno que roda no próprio servidor (Ollama), sem envio a serviços externos. Sem o modelo local disponível, o assistente aparece desativado e a interface explica o que falta.
+  - **RN-66d — Privacidade.** A conversa fica só no navegador e não é armazenada pelo Pocket Plan. As mensagens, a data de hoje e os nomes das categorias do usuário são interpretados por um modelo de linguagem pequeno que roda no próprio servidor (Ollama), sem envio a serviços externos. Sem o modelo local disponível, o assistente aparece desativado e a interface explica o que falta.
 
 ## Investimentos *(adiada)*
 
