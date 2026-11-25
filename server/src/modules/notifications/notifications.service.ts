@@ -27,7 +27,17 @@ export async function listNotifications(userId: number) {
     currentNotifications(userId, todayValue),
     prisma.noticeState.findMany({ where: { userId } }),
   ]);
-  const { visible, dismissed, unread } = applyNoticeStates(notifications, states, todayValue);
+  // Situação resolvida: o que o usuário fez com o aviso deixa de valer. Se a situação voltar,
+  // é uma notícia nova, e o aviso aparece como não lido (RN-72a).
+  const current = new Set(notifications.map((n) => n.key));
+  const resolved = states.filter((s) => !current.has(s.key));
+  if (resolved.length > 0) await prisma.noticeState.deleteMany({ where: { userId, key: { in: resolved.map((s) => s.key) } } });
+
+  const { visible, dismissed, unread } = applyNoticeStates(
+    notifications,
+    states.filter((s) => current.has(s.key)),
+    todayValue,
+  );
   return { notifications: visible, unread, dismissed };
 }
 

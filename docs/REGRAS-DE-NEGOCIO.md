@@ -225,7 +225,7 @@ As regras citam umas às outras pelo identificador; os comentários do código e
   - cada **cartão** com o limite em **atenção** ou **estourado** (RN-55), levando aos cartões;
   - cada **meta** (de economia, RN-34, ou de investimento, RN-29b) ainda não atingida nos **últimos 7 dias** do período, levando ao painel.
 
-  Um aviso some sozinho quando a situação é resolvida (a conta é paga, o mês vira, o limite é ajustado).
+  Um aviso some sozinho quando a situação é resolvida (a conta é paga, o mês vira, o limite é ajustado). Nesse momento, a leitura e a dispensa dele deixam de valer: se a situação voltar depois, é um aviso novo.
   - **RN-72a — Lido.** Um aviso passa a **lido** quando o usuário clica nele. O contador do sino mostra só os não lidos; os lidos continuam na lista, apagados. Se a situação **piorar** — mais contas atrasadas ou a vencer, um orçamento ou cartão que passa de atenção para estourado —, o aviso volta a ser não lido.
   - **RN-72b — Dispensar.** O usuário pode dispensar um aviso: ele sai do sino pelo número de dias escolhido nas configurações (1, 3, 7, 15 ou 30 dias; padrão 3). Passado esse tempo, se a situação continuar, o aviso volta; se piorar antes, volta na hora. As configurações listam os avisos dispensados que ainda valem, com a data em que voltam e a opção de mostrá-los de novo.
   - **RN-72c — Destaque.** Ao clicar num aviso, o app abre a tela onde ele se resolve, rola até o item e o destaca por alguns segundos (com animação, exceto para quem desativou animações no sistema).

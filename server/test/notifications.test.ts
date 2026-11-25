@@ -145,6 +145,23 @@ describe('central de avisos pela API (RN-72 a RN-72b)', () => {
     expect(await notices()).toMatchObject({ unread: 1, notifications: [{ key: 'overdue', read: false, count: 2 }] });
   });
 
+  it('quando a situação se resolve e depois volta, o aviso é novo de novo', async () => {
+    const late = (await add(5000, '2026-11-20', false)).body.entry;
+    await add(2000, '2026-11-21', false);
+    await action('overdue', 'read').expect(204); // lido com 2 contas atrasadas
+    await action('overdue', 'dismiss').expect(200);
+
+    // Paga as duas: o aviso some.
+    for (const entry of (await request(app).get('/api/entries?start=2026-11-01&end=2026-11-30').set('Cookie', cookie)).body.entries) {
+      await request(app).patch(`/api/entries/${entry.id}/paid`).set('Cookie', cookie).send({ paid: true }).expect(200);
+    }
+    expect(await notices()).toMatchObject({ notifications: [], dismissed: [] });
+
+    // Uma conta volta a atrasar: é uma situação nova, não lida e não dispensada.
+    await request(app).patch(`/api/entries/${late.id}/paid`).set('Cookie', cookie).send({ paid: false }).expect(200);
+    expect(await notices()).toMatchObject({ unread: 1, notifications: [{ key: 'overdue', read: false, count: 1 }] });
+  });
+
   it('dispensar usa os dias das configurações; o aviso volta depois deles', async () => {
     await request(app).patch('/api/settings/preferences').set('Cookie', cookie).send({ noticeSnoozeDays: 7 }).expect(200);
     await add(5000, '2026-11-20', false);
