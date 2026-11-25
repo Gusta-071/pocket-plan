@@ -316,10 +316,15 @@ a { color: var(--color-primary); font-weight: 600; }
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* Tabelas não respeitam a largura acima; elas precisam ficar dentro de um elemento escondido. */
+table.visually-hidden { display: block; }
 
 /* Força da senha */
 .strength { display: grid; gap: 6px; }
@@ -702,10 +707,83 @@ a { color: var(--color-primary); font-weight: 600; }
 .proposal__actions .button { flex: 1; }
 .proposal__status { margin: 0; font-weight: 700; color: var(--color-success); }
 
+/*
+ * Assistente retrátil (issue #17). No PC, gaveta fixa à direita, abaixo do topo, com a altura inteira;
+ * a página abre espaço para ela. Abaixo de 1280 px, sobe de baixo, por cima da tela, com fundo escuro.
+ */
+.assistant-dock {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  transition: transform 0.28s ease, visibility 0.28s;
+}
+.assistant-dock .assistant { flex: 1; height: auto; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+.assistant-dock .assistant__header { padding-right: 52px; }
+.assistant-dock__close {
+  position: absolute; top: 10px; right: 10px; z-index: 1;
+  display: grid; place-items: center; width: 36px; height: 36px;
+  border: 0; border-radius: 10px; background: none; color: var(--color-muted); cursor: pointer;
+}
+.assistant-dock__close:hover { background: var(--color-hover); color: var(--color-text); }
+.assistant-dock__close:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.assistant-dock:not(.assistant-dock--open) { visibility: hidden; }
+
+.assistant-toggle {
+  position: fixed; z-index: 39;
+  display: flex; align-items: center; gap: 8px;
+  border: 0; background: var(--color-primary); color: var(--color-on-primary);
+  font: inherit; font-weight: 600; cursor: pointer;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+  transition: transform 0.28s ease, opacity 0.2s;
+}
+.assistant-toggle:focus-visible { outline: 3px solid var(--color-text); outline-offset: 2px; }
+.assistant-toggle--hidden { opacity: 0; pointer-events: none; }
+.assistant-backdrop { position: fixed; inset: 0; z-index: 38; background: rgb(0 0 0 / 0.35); }
+
+/* Celular e telas menores: sobe de baixo; o botão fica acima da barra de navegação. */
+@media (max-width: 1279px) {
+  .assistant-dock {
+    left: 0; right: 0; bottom: 0;
+    height: min(88dvh, 720px);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 32px rgb(0 0 0 / 0.2);
+    transform: translateY(105%);
+  }
+  .assistant-dock--open { transform: translateY(0); }
+  .assistant-toggle { right: 16px; bottom: 32px; width: 56px; height: 56px; justify-content: center; border-radius: 50%; }
+  .assistant-toggle__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+@media (max-width: 640px) {
+  .assistant-toggle { bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .assistant-dock { height: calc(100dvh - 48px); }
+}
+
+/* PC: gaveta à direita, com a altura inteira abaixo do topo; fechada, sobra uma aba vertical na borda. */
 @media (min-width: 1280px) {
-  .home { grid-template-columns: minmax(0, 1fr) 380px; }
-  .home__side { position: sticky; top: 24px; }
-  .assistant { height: calc(100dvh - 140px); }
+  .assistant-dock {
+    top: var(--topbar-height, 64px); right: 0; bottom: 0;
+    width: 380px;
+    border-left: 1px solid var(--color-divider);
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.06);
+    transform: translateX(100%);
+  }
+  .assistant-dock--open { transform: translateX(0); }
+  .assistant-toggle {
+    right: 0; top: 50%;
+    padding: 14px 10px;
+    border-radius: 12px 0 0 12px;
+    writing-mode: vertical-rl;
+    transform: translateY(-50%);
+  }
+  .assistant-toggle--hidden { transform: translate(100%, -50%); }
+  .content:has(.home) { transition: padding-right 0.28s ease; }
+  html[data-assistant='open'] .content:has(.home) { padding-right: calc(380px + 24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-dock, .assistant-toggle, .content:has(.home) { transition: none; }
 }
 
 /* Atalho em ícone (RN-47a): a descrição aparece no título nativo ao parar o mouse. */
@@ -934,3 +1012,28 @@ li.destaque::after { border-radius: 12px; }
 .bell__dismiss:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .bell__footer { margin: 10px 0 0; }
 .settings__subtitle { margin: 4px 0 0; font-size: 0.95rem; }
+
+/*
+ * Telas bem estreitas (~300 px): nada pode passar da largura da tela.
+ * Itens de grade e de flex, por padrão, não encolhem abaixo do conteúdo; aqui eles podem.
+ */
+.settings > *, .form > *, .field, .field__control { min-width: 0; }
+.field input, .field select, .field textarea { min-width: 0; max-width: 100%; }
+.settings__link { white-space: normal; text-align: center; }
+.entry-row .list__item { min-width: 0; }
+@media (max-width: 360px) {
+  .list__item { gap: 10px; padding-right: 10px; }
+  .check { margin-left: 0; }
+  .entry .amount { font-size: 0.9rem; }
+}
+/* Tablet: logo, navegação, sino e "Sair" não cabem com o nome; o nome some, como no celular. */
+@media (max-width: 960px) {
+  .topbar__name { display: none; }
+  .topbar { gap: 12px; }
+}
+@media (min-width: 641px) and (max-width: 820px) {
+  .topbar { padding-left: 16px; padding-right: 16px; }
+  .topbar__brand-name { display: none; }
+  .nav__item { padding: 8px 10px; gap: 6px; }
+  .topbar__user { gap: 6px; }
+}

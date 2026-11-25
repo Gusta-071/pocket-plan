@@ -109,7 +109,7 @@ export function BillsPage({ user }: { user: User }) {
                     Falta pagar <strong className="amount--expense">{formatMoney(progress.pendingCents)}</strong>
                   </span>
                 ) : (
-                  progress.totalCount > 0 && <span className="small amount--income">Tudo pago 🎉</span>
+                  progress.totalCount > 0 && <span className="small amount--income">Tudo pago</span>
                 )}
               </div>
               <span className="meter" role="img" aria-label={`${percent}% das contas pagas`}>

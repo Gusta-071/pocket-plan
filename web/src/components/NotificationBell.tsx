@@ -149,7 +149,7 @@ export function NotificationBell() {
           {notifications === null ? (
             <p className="muted small">Carregando…</p>
           ) : notifications.length === 0 ? (
-            <p className="muted small bell__empty">Tudo em dia por aqui. 🎉</p>
+            <p className="muted small bell__empty">Tudo em dia por aqui.</p>
           ) : (
             <ul className="bell__list">
               {notifications.map((n) => {
