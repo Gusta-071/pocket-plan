@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
-import { applyTheme, type Theme } from '../lib/theme';
+import { applyTheme, clearPendingTheme, currentTheme, hasPendingTheme, type Theme } from '../lib/theme';
 import type { PeriodNaming } from '../../../shared/period';
 
 export type User = {
@@ -36,9 +36,25 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
 
-  // O tema salvo na conta vale em todos os aparelhos (RN-45).
+  // O tema salvo na conta vale em todos os aparelhos (RN-45). A exceção é o tema escolhido nas telas
+  // de entrada: ao entrar, ele continua valendo e passa a ser o da conta.
   useEffect(() => {
-    if (user) applyTheme(user.theme);
+    if (!user) return;
+    if (!hasPendingTheme()) {
+      applyTheme(user.theme);
+      return;
+    }
+    const chosen = currentTheme();
+    if (chosen === user.theme) {
+      clearPendingTheme();
+      return;
+    }
+    // Sem o e-mail confirmado, a conta ainda não pode ser alterada: mantém a escolha e salva depois.
+    if (!user.emailVerified) return;
+    clearPendingTheme();
+    api<{ user: User }>('/settings/preferences', { method: 'PATCH', body: JSON.stringify({ theme: chosen }) })
+      .then((result) => setUser(result.user))
+      .catch(() => applyTheme(user.theme));
   }, [user]);
 
   const refresh = useCallback(async () => {

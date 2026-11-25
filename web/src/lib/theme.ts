@@ -22,6 +22,22 @@ export function applyTheme(theme: Theme) {
   listeners.forEach((listener) => listener());
 }
 
+const PENDING_KEY = 'pp-theme-pending';
+
+/** Marca que o tema foi escolhido sem login (telas de entrada): ao entrar, ele vale e vai para a conta. */
+export function markThemeChosenLoggedOut() {
+  localStorage.setItem(PENDING_KEY, '1');
+}
+
+/** O tema foi escolhido sem login e ainda não foi salvo na conta? */
+export function hasPendingTheme(): boolean {
+  return localStorage.getItem(PENDING_KEY) === '1';
+}
+
+export function clearPendingTheme() {
+  localStorage.removeItem(PENDING_KEY);
+}
+
 /** Tema escolhido agora (para os botões de tema ficarem em sincronia). */
 export function currentTheme(): Theme {
   return current;

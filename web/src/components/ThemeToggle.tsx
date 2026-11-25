@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useAuth, type User } from '../auth/AuthContext';
 import { api } from '../lib/api';
-import { applyTheme, currentTheme, subscribeTheme, type Theme } from '../lib/theme';
+import { applyTheme, currentTheme, markThemeChosenLoggedOut, subscribeTheme, type Theme } from '../lib/theme';
 
 const OPTIONS: { value: Theme; label: string; icon: ReactNode }[] = [
   {
@@ -47,7 +47,11 @@ export function ThemeToggle() {
     if (next === theme || saving) return;
     const previous = theme;
     applyTheme(next);
-    if (!user?.emailVerified) return;
+    // Sem login (ou com o e-mail ainda não confirmado), a escolha fica guardada e vai para a conta ao entrar.
+    if (!user?.emailVerified) {
+      markThemeChosenLoggedOut();
+      return;
+    }
     setSaving(true);
     try {
       const result = await api<{ user: User }>('/settings/preferences', { method: 'PATCH', body: JSON.stringify({ theme: next }) });

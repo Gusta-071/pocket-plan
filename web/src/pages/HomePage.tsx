@@ -144,23 +144,27 @@ export function HomePage({ user }: { user: User }) {
         )}
 
         {data && (
-          // No PC, os blocos ficam em duas colunas: categorias à esquerda; contas e evolução à direita.
+          // No PC, duas colunas de altura parecida: metas, orçamento e categorias à esquerda;
+          // contas, evolução e formas de pagamento à direita. Em meses passados (sem "Contas a acertar"),
+          // as metas vão para a direita, para as colunas continuarem equilibradas.
           <div className="dashboard">
             <div className="dashboard__area dashboard__area--summary">
               <Summary data={data} />
               <ClassTotals data={data} />
             </div>
             <div className="dashboard__area dashboard__area--categories">
-              <Goals data={data} onChanged={() => void load()} />
+              {data.period.isCurrent && <Goals data={data} onChanged={() => void load()} />}
               <Budget data={data} />
               <SpendingByCategory data={data} />
-              <SpendingByPayment data={data} />
             </div>
             <div className="dashboard__area dashboard__area--side">
-              {data.period.isCurrent && (
+              {data.period.isCurrent ? (
                 <Bills data={data} categories={categories ?? []} onToggle={(item) => void togglePaid(item)} onChanged={() => void load()} />
+              ) : (
+                <Goals data={data} onChanged={() => void load()} />
               )}
               <Evolution data={data} />
+              <SpendingByPayment data={data} />
             </div>
           </div>
         )}

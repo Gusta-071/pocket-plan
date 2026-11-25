@@ -1156,3 +1156,8 @@ li.destaque::after { border-radius: 12px; }
 @media (max-width: 640px) {
   .shell--auth { padding-top: 72px; }
 }
+
+/* PC com o assistente fechado: a aba dele fica na borda direita; o painel deixa esse espaço livre. */
+@media (min-width: 1280px) {
+  html:not([data-assistant='open']) .content:has(.home) { padding-right: 64px; }
+}
