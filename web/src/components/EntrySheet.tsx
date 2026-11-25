@@ -186,6 +186,13 @@ function FormSheet({
       {parcel && (
         <Alert kind="warning">
           Parcela {parcel.number} de {parcel.count}. As alterações valem para todas as parcelas desta compra.
+          {original && draft.amountCents !== original.amountCents && draft.amountCents > 0 && (
+            <>
+              {' '}
+              Com o novo valor, o total passa a ser {parcel.count} × {formatMoney(draft.amountCents)} ={' '}
+              <strong>{formatMoney(parcel.count * draft.amountCents)}</strong>.
+            </>
+          )}
         </Alert>
       )}
       {save.error && <Alert kind="error">{save.error}</Alert>}

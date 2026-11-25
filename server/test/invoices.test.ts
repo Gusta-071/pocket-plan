@@ -214,6 +214,27 @@ describe('parcelamento (RN-56, RN-56a)', () => {
     ]);
   });
 
+  it('mudar o valor num parcelamento pelo total deixa todas iguais: total = parcela × parcelas', async () => {
+    const parcels: Entry[] = (await post(purchase({ amountCents: 10000, installments: { count: 3, mode: 'TOTAL' } }))).body.entries;
+    expect(parcels.map((p) => p.amountCents)).toEqual([3334, 3333, 3333]);
+    await put(parcels[1]!.id, purchase({ amountCents: 3500 })).expect(200);
+    const all = (await listEntries('2026-01-01', '2027-12-31')).filter((e) => e.installment);
+    expect(all.map((e) => e.amountCents)).toEqual([3500, 3500, 3500]);
+  });
+
+  it('a parcela editada fica com a data informada; as demais, no mesmo dia do mês ou no último dia', async () => {
+    const boletoPurchase = (body: object) => purchase({ paymentMethodId: boleto, cardId: null, ...body });
+    const parcels: Entry[] = (await post(boletoPurchase({ date: '2026-01-31', installments: { count: 3, mode: 'TOTAL' } }))).body.entries;
+    expect(parcels.map((p) => p.date)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31']);
+
+    const dates = async () => (await listEntries('2026-01-01', '2026-12-31')).map((e) => e.date).sort();
+    await put(parcels[2]!.id, boletoPurchase({ date: '2026-03-30' })).expect(200);
+    expect(await dates()).toEqual(['2026-01-30', '2026-02-28', '2026-03-30']);
+
+    await put(parcels[1]!.id, boletoPurchase({ date: '2026-02-27' })).expect(200);
+    expect(await dates()).toEqual(['2026-01-27', '2026-02-27', '2026-03-27']);
+  });
+
   it('uma parcela mais de 12 meses à frente pode ser editada', async () => {
     const parcels: Entry[] = (await post(purchase({ installments: { count: 24, mode: 'TOTAL' } }))).body.entries;
     const last = parcels.at(-1)!;

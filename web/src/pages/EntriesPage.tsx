@@ -147,7 +147,7 @@ export function EntriesPage({ user }: { user: User }) {
       <div className="entries">
         <div className="entries__side">
           {totals && type !== 'ALL' && (
-            // Filtrando um tipo só, "resultado" não faz sentido: mostra o pago, o pendente e o total desse tipo.
+            // Filtrando um tipo só: o que já foi pago, o que está pendente e o total lançado no mês.
             <section className="card summary" aria-label="Totais do período">
               {(() => {
                 const kind = type === 'INCOME' ? 'income' : 'expense';
@@ -174,23 +174,28 @@ export function EntriesPage({ user }: { user: User }) {
           )}
 
           {totals && type === 'ALL' && (
+            // RN-52a: esta lista segue a data da compra, então o resumo mostra o que foi lançado no mês.
+            // O resultado em dinheiro (pela data de pagamento) fica no painel, com outro nome, para não confundir.
             <section className="card summary" aria-label="Totais do período">
               <div>
-                <span className="muted small">Recebido</span>
-                <strong className="amount amount--income">{formatMoney(totals.incomePaid)}</strong>
+                <span className="muted small">Receitas</span>
+                <strong className="amount amount--income">{formatMoney(totals.incomePaid + totals.incomePending)}</strong>
               </div>
               <div>
-                <span className="muted small">Pago</span>
-                <strong className="amount amount--expense">{formatMoney(totals.expensePaid)}</strong>
+                <span className="muted small">Despesas</span>
+                <strong className="amount amount--expense">{formatMoney(totals.expensePaid + totals.expensePending)}</strong>
               </div>
               <div>
-                <span className="muted small">Resultado</span>
-                <strong className={`amount ${totals.result < 0 ? 'amount--expense' : ''}`}>{formatMoney(totals.result)}</strong>
+                <span className="muted small">Diferença</span>
+                {(() => {
+                  const difference = totals.incomePaid + totals.incomePending - totals.expensePaid - totals.expensePending;
+                  return <strong className={`amount ${difference < 0 ? 'amount--expense' : ''}`}>{formatMoney(difference)}</strong>;
+                })()}
               </div>
               {hasPending && (
                 <p className="summary__projected small">
-                  Com os pendentes ({formatSigned(totals.incomePending, 'INCOME')} / {formatSigned(totals.expensePending, 'EXPENSE')}), o
-                  resultado projetado é <strong>{formatMoney(totals.projected)}</strong>.
+                  Ainda pendente: {formatSigned(totals.incomePending, 'INCOME')} em receitas e {formatSigned(totals.expensePending, 'EXPENSE')} em
+                  despesas (as compras no cartão ficam pendentes até a fatura ser paga).
                 </p>
               )}
             </section>
