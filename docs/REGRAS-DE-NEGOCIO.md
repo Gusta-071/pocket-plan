@@ -19,6 +19,7 @@ Este documento define as regras do domínio do pocket-plan. Cada regra tem um id
 | Contas do mês | RN-50 a RN-50d | Implementada |
 | Cartões de crédito: faturas, limite e parcelamento | RN-51 a RN-57 | Implementada |
 | Assistente com IA | RN-66 | Implementada (depende do Ollama na máquina) |
+| Avisos | RN-72 a RN-72c | Implementada |
 | Configurações da conta | RN-42 a RN-47a | Implementada |
 | Despesas compartilhadas | RN-58 a RN-65 | *Planejada* ([issue #25](https://github.com/Gusta-071/pocket-plan/issues/25)) |
 | Carteira de investimentos com rendimento | RN-35 a RN-41 | *Adiada* (ver Decisões adiadas) |
@@ -214,6 +215,20 @@ As regras citam umas às outras pelo identificador; os comentários do código e
 
     A situação (RN-22) é de cada parcela; no cartão, segue a fatura (RN-54). Para mudar o número de parcelas, o usuário exclui o parcelamento e o registra de novo. **Excluir uma parcela exclui o parcelamento inteiro**, com confirmação. Parcelas não podem ser repetidas (RN-25b).
 - **RN-57 — Arquivar cartão.** Um cartão sem compras pode ser excluído. Um cartão com compras não pode ser excluído, apenas **arquivado**: deixa de aparecer para novas compras, mas mantém o histórico e as faturas. Um cartão arquivado pode ser reativado.
+
+## Avisos
+
+- **RN-72 — Central de avisos.** Um sino na barra do topo mostra quantos avisos existem; ao tocar, abre a lista. Cada aviso leva à tela onde a situação se resolve. Os avisos são calculados na hora, a partir da situação atual, e consideram o período atual:
+  - **contas atrasadas** (RN-22a), de qualquer período, num único aviso com a quantidade e o total, levando às Contas do mês;
+  - **contas que vencem hoje ou nos próximos 3 dias**, num único aviso, levando às Contas do mês;
+  - cada **categoria ou classe** com orçamento em **atenção** ou **estourada** (RN-32), levando ao painel;
+  - cada **cartão** com o limite em **atenção** ou **estourado** (RN-55), levando aos cartões;
+  - cada **meta** (de economia, RN-34, ou de investimento, RN-29b) ainda não atingida nos **últimos 7 dias** do período, levando ao painel.
+
+  Um aviso some sozinho quando a situação é resolvida (a conta é paga, o mês vira, o limite é ajustado). Nesse momento, a leitura e a dispensa dele deixam de valer: se a situação voltar depois, é um aviso novo.
+  - **RN-72a — Lido.** Um aviso passa a **lido** quando o usuário clica nele. O contador do sino mostra só os não lidos; os lidos continuam na lista, apagados. Se a situação **piorar** — mais contas atrasadas ou a vencer, um orçamento ou cartão que passa de atenção para estourado —, o aviso volta a ser não lido.
+  - **RN-72b — Dispensar.** O usuário pode dispensar um aviso: ele sai do sino pelo número de dias escolhido nas configurações (1, 3, 7, 15 ou 30 dias; padrão 3). Passado esse tempo, se a situação continuar, o aviso volta; se piorar antes, volta na hora. As configurações listam os avisos dispensados que ainda valem, com a data em que voltam e a opção de mostrá-los de novo.
+  - **RN-72c — Destaque.** Ao clicar num aviso, o app abre a tela onde ele se resolve, rola até o item e o destaca por alguns segundos (com animação, exceto para quem desativou animações no sistema).
 
 ## Despesas compartilhadas *(planejada)*
 

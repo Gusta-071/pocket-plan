@@ -149,7 +149,6 @@ export function HomePage({ user }: { user: User }) {
             <div className="dashboard__area dashboard__area--summary">
               <Summary data={data} />
               <ClassTotals data={data} />
-              {data.overdue.count > 0 && <OverdueAlert overdue={data.overdue} />}
             </div>
             <div className="dashboard__area dashboard__area--categories">
               <Goals data={data} onChanged={() => void load()} />
@@ -258,6 +257,7 @@ function Goals({ data, onChanged }: { data: Dashboard; onChanged: () => void }) 
       </div>
       <div className="goals">
         <GoalCard
+          target="meta-SAVINGS"
           title="Economia"
           empty="Quanto você quer que sobre no fim do mês?"
           canEdit={isCurrent}
@@ -276,6 +276,7 @@ function Goals({ data, onChanged }: { data: Dashboard; onChanged: () => void }) 
           }
         />
         <GoalCard
+          target="meta-INVESTMENT"
           title="Investimento"
           empty="Quanto você quer investir por mês?"
           canEdit={isCurrent}
@@ -315,12 +316,14 @@ function Goals({ data, onChanged }: { data: Dashboard; onChanged: () => void }) 
 }
 
 function GoalCard({
+  target,
   title,
   empty,
   goal,
   canEdit,
   onEdit,
 }: {
+  target: string;
   title: string;
   empty: string;
   goal: { goalCents: number; valueCents: number; achieved: boolean; detail: string } | null;
@@ -329,7 +332,7 @@ function GoalCard({
 }) {
   const percent = goal ? Math.max(0, Math.min(100, Math.round((goal.valueCents / goal.goalCents) * 100))) : 0;
   return (
-    <div className="card goal">
+    <div className="card goal" data-destaque={target}>
       <div className="goal__header">
         <span className="goal__title">{title}</span>
         {canEdit && (
@@ -362,8 +365,8 @@ function GoalCard({
 function Budget({ data }: { data: Dashboard }) {
   const { classes, categories, warningPercent } = data.budget;
   const rows = [
-    ...classes.map((c) => ({ key: `class-${c.expenseClass}`, name: `Despesas ${c.expenseClass === 'FIXED' ? 'fixas' : 'variáveis'}`, color: null, isClass: true, ...c })),
-    ...categories.map((c) => ({ ...c, key: `category-${c.categoryId}`, isClass: false })),
+    ...classes.map((c) => ({ key: `class-${c.expenseClass}`, target: `orcamento-classe-${c.expenseClass}`, name: `Despesas ${c.expenseClass === 'FIXED' ? 'fixas' : 'variáveis'}`, color: null, isClass: true, ...c })),
+    ...categories.map((c) => ({ ...c, key: `category-${c.categoryId}`, target: `orcamento-categoria-${c.categoryId}`, isClass: false })),
   ];
 
   return (
@@ -385,7 +388,7 @@ function Budget({ data }: { data: Dashboard }) {
               const consumed = Math.min(100, (row.consumedCents / row.limitCents) * 100);
               const committed = Math.min(100 - consumed, (row.committedCents / row.limitCents) * 100);
               return (
-                <li key={row.key} className={`budget__row budget__row--${row.status.toLowerCase()}`}>
+                <li key={row.key} className={`budget__row budget__row--${row.status.toLowerCase()}`} data-destaque={row.target}>
                   <span className={`budget__name ${row.isClass ? 'budget__name--class' : ''}`}>
                     {row.color && <span className="color-dot" style={{ background: CATEGORY_COLORS[row.color].hex }} aria-hidden="true" />}
                     {row.name}
@@ -417,20 +420,6 @@ function Budget({ data }: { data: Dashboard }) {
         </div>
       )}
     </section>
-  );
-}
-
-function OverdueAlert({ overdue }: { overdue: Dashboard['overdue'] }) {
-  const parts = [];
-  if (overdue.expenseCents > 0) parts.push(`${formatMoney(overdue.expenseCents)} a pagar`);
-  if (overdue.incomeCents > 0) parts.push(`${formatMoney(overdue.incomeCents)} a receber`);
-  return (
-    <div className="alert alert--error dashboard__overdue" role="status">
-      <strong>
-        {overdue.count === 1 ? '1 conta atrasada' : `${overdue.count} contas atrasadas`}
-      </strong>{' '}
-      · {parts.join(' e ')}. Marque como pago o que já foi acertado.
-    </div>
   );
 }
 

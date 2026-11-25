@@ -121,7 +121,7 @@ export function PaymentsPage() {
             ) : (
               <ul className="list">
                 {cards.map((card) => (
-                  <li key={card.id}>
+                  <li key={card.id} data-destaque={`cartao-${card.id}`}>
                     <button type="button" className="list__item" onClick={() => setEditing({ kind: 'card', card })}>
                       <span className="color-dot" style={{ background: CATEGORY_COLORS[card.color].hex }} aria-hidden="true" />
                       <span className="entry__text">

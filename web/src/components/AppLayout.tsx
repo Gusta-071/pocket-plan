@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useAuth, type User } from '../auth/AuthContext';
 import { Link, useLocation } from '../lib/router';
+import { useHighlight } from '../lib/useHighlight';
+import { NotificationBell } from './NotificationBell';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Início', icon: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /> },
@@ -48,6 +50,8 @@ export function AppLayout({ user, children }: { user: User; children: ReactNode 
   const { logout } = useAuth();
   const { path } = useLocation();
   const [leaving, setLeaving] = useState(false);
+  // RN-72c: destaca o item indicado por um aviso.
+  useHighlight();
 
   async function handleLogout() {
     setLeaving(true);
@@ -76,6 +80,8 @@ export function AppLayout({ user, children }: { user: User; children: ReactNode 
           ))}
         </nav>
         <span className="topbar__user">
+          {/* RN-72: central de avisos, no topo em todas as telas. */}
+          <NotificationBell />
           <span className="topbar__name">{user.name}</span>
           <button className="button button--ghost" type="button" onClick={handleLogout} disabled={leaving}>
             Sair
